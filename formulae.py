@@ -115,8 +115,10 @@ class three_leg_related:
 
   @staticmethod
   def Lambda_from_chi3tilde_G_Uweiss_and_chi(nw, nnu, chi3tilde, G1, G2, Uweiss, chi, freq_sum = lambda wi, nui: wi + nui):
-    return [ [  chi3tilde[wi,nui] \
-                / ( G1(wi) * G2(freq_sum(wi,nui)) *  (1.0 - Uweiss(nui) * chi_imp(nui) ) ) for nui in range(self.nnu) ] for wi in range(nw) ]
+    return numpy.array( [ [  chi3tilde[wi,nui] \
+                             / ( G1(wi) * G2(freq_sum(wi,nui)) *  (1.0 - Uweiss(nui) * chi_imp(nui) ) )\
+                             for nui in range(self.nnu) ]\
+                          for wi in range(nw) ] )
 
 #--------------------------------------------------------------------------------------#
 class bubble:
