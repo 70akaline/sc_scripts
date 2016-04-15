@@ -20,129 +20,7 @@ import pytriqs.utility.mpi as mpi
 from impurity_solvers import *
 from data_types import *
 
-################################ general initializers ##########################################
 
-def sgn(x):
-  if x>=0: 
-    return 1
-  else:
-    return -1
-
-#---------- dispersions and bare interactions
-def Jq_square(qx, qy, J):
-  return 2.0*J*(cos(qx)+cos(qy))
-
-def epsilonk_square(kx,ky,t):
-  return Jq_square(kx, ky, t)
-
-def Jq_square_AFM(qx, qy, J): #should not make any difference when summed over the brillouin zone
-  return J*( 1.0 + cmath.exp(1j*qx) + cmath.exp(1j*qy) + cmath.exp(1j*(qx+qy)) )
-
-#---------- k sums
-def analytic_k_sum(Pnu, J, N=2000): #works only for Jq_square
-    if Pnu==0.0: return 0.0
-    ks = [l*2.0*pi/N for l in range(N)]
-    tot = 0.0
-    for kx in ks:
-      a = (Pnu**(-1.0))/(2.0*J) - cos(kx)
-      tot += 1.0/(sqrt(abs(a)-1.0)*sqrt(abs(a)+1.0))
-    return tot/(N * 2*J)    
-
-#---------- dyson equations
-class dyson:
-  class scalar:  
-    #convetion:
-    # W = full propagator (fermionic G)
-    # P = irreducible polarization (fermionic Sigma)
-    # chi = -1*reducible (full) polarization (fermionic -M)
-    # J = bare propagator (fermionic G0)
-    @staticmethod  
-    def W_from_P_and_J(P, J):
-      if J==0.0: return 0.0
-      return 1.0/(J**(-1.0)- P)
-
-    @staticmethod  
-    def W_from_chi_and_J(chi, J):
-      return J - J*chi*J
-
-    @staticmethod 
-    def chi_from_P_and_J(P, J):
-      if P==0.0: return 0.0
-      return -1.0/(P**(-1.0) - J)
-
-    @staticmethod
-    def P_from_chi_and_J(chi, J):
-      return dyson.scalar.chi_from_P_and_J(chi, J)
-
-    @staticmethod 
-    def P_from_W_and_J(W, J):
-      if W==0.0 or J==0.0:
-        return 0.0
-      return J**(-1.0)-W**(-1.0)
-
-    @staticmethod
-    def J_from_P_and_chi(P, chi):
-      if P==0.0 or chi==0.0:
-        return 0.0
-      return P**(-1.0)+chi**(-1.0)
-
-    @staticmethod
-    def J_from_P_and_W(P, W):
-      if W==0.0:
-        return 0.0
-      return (W**(-1.0)+P)**(-1.0)
-
-    @staticmethod
-    def G_from_w_mu_epsilon_and_Sigma(w,mu,epsilon,Sigma):
-      return (w+mu-epsilon-Sigma)**(-1.0)
-
-  class antiferromagnetic:
-    @staticmethod
-    def chi_from_P_and_J(P, J):
-      if P == 0: return 0.0
-      return -P.conjugate()**(-1.0)/(abs(P)**(-2.0) - abs(J)**2.0)
-  
-class three_leg_related:
-  @staticmethod
-  def LambdaHalfFilledAtomic(U, beta, w, nu, chsp=1, alpha=0.5): #ch=1, sp=-1     
-    A = (U**2.0/4.0)/(1j*w*(1j*w+1j*nu))+1.0
-    if nu==0.0:
-      if chsp==1:
-        Ueta = (3*alpha-1.0)*U
-      if chsp==-1:
-        Ueta = (alpha-2.0/3.0)*U  
-      qbU = beta*U/4.0
-      chi = (beta/4.0)*(exp(-chsp*qbU)/cosh(qbU))
-      pref = 1.0/(1.0-Ueta*chi) 
-      B = qbU*(1.0-U**2/(4.0*(1j*w)**2.0))*(tanh(qbU)-chsp*1.0)
-      return pref*(A+B)          
-    else:
-      return A
-
-
-#---------- susceptibilities from nn_iw (<SzSz> and <S0S0>)
-def get_chi_iw(chi_iw, nn_iw, bosonic_struct, fermionic_struct, coupling):
-  for A in bosonic_struct.keys():
-    for a in bosonic_struct[A]:
-      for b in bosonic_struct[A]:
-        for U in fermionic_struct.keys():
-          for V in fermionic_struct.keys():
-            for u in fermionic_struct[U]:
-              for v in fermionic_struct[V]:
-                chi_iw[A][a,b] += coupling[U+"|"+A][u,u,a]*coupling[V+"|"+A][v,v,b]*nn_iw[U+"|"+V][u,v]
-
-#---------- initial guesses for P
-
-def safe_and_stupid_scalar_P_imp(safe_value, P_imp):
-  #expects P_imp to be non-block bosonic matrix 1x1 Gf
-  nw = len(P_imp.data[:,0,0]) #total number of bosonic mats freq 
-  P_imp.data[nw/2,0,0] = safe_value
-  P_imp.data[nw/2+1,0,0] = safe_value*0.2 #initial guess to have at least some time dependence in P
-  P_imp.data[nw/2-1,0,0] = safe_value*0.2
-  P_imp.data[nw/2+2,0,0] = safe_value*0.1
-  P_imp.data[nw/2-2,0,0] = safe_value*0.1
-  P_imp.data[nw/2+3,0,0] = safe_value*0.05
-  P_imp.data[nw/2-3,0,0] = safe_value*0.05
 
 ################################## dmft ###############################################
 class dmft:
@@ -552,7 +430,7 @@ class GW_hubbard_pm:
     data.get_Sigma_test()
     data.get_P_test()
     if mpi.is_master_node():
-      data.dump_all(suffix='-final')
+      data.dump_test(suffix='-final')
 
 #--------------------trilex---------------------------------------#
 

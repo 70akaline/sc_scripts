@@ -70,9 +70,7 @@ class solvers:
       A['G0_shift_iw'] = solver.G0_shift_iw
       A['hist'] = solver.histogram
       A['M_tau'] = solver.M_tau
-      A['M_iw'] = solver.M_iw
-
-  
+      A['M_iw'] = solver.M_iw  
 
   class cthyb:
     @staticmethod
