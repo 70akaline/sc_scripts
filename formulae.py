@@ -114,10 +114,12 @@ class three_leg_related:
     return res
 
   @staticmethod
-  def Lambda_from_chi3tilde_G_Uweiss_and_chi(nw, nnu, chi3tilde, G1, G2, Uweiss, chi, freq_sum = lambda wi, nui: wi + nui):
+  def Lambda_from_chi3tilde_G_Uweiss_and_chi(chi3tilde, G1, G2, Uweiss, chi, freq_sum = lambda wi, nui: wi + nui):
+    nw = len(chi3tilde[:,0])
+    nnu = len(chi3tilde[0,:])
     return numpy.array( [ [  chi3tilde[wi,nui] \
                              / ( G1(wi) * G2(freq_sum(wi,nui)) *  (1.0 - Uweiss(nui) * chi_imp(nui) ) )\
-                             for nui in range(self.nnu) ]\
+                             for nui in range(nnu) ]\
                           for wi in range(nw) ] )
 
 #--------------------------------------------------------------------------------------#
