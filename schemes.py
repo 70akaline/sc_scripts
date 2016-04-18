@@ -19,6 +19,9 @@ import pytriqs.utility.mpi as mpi
 
 from impurity_solvers import *
 from data_types import *
+import formulae
+from formulae import dyson
+
 
 
 
@@ -269,7 +272,7 @@ class edmft_heisenberg_pm:
 
   @staticmethod
   def pre_impurity(data):
-    data.get_Uweiss(dyson.scalar.J_from_P_and_chi)
+    data.get_Uweiss_from_chi(dyson.scalar.J_from_P_and_chi)
 
     data.mus['up'] = data.mus['down'] = 0 #just to make sure
 
@@ -298,7 +301,7 @@ class edmft_heisenberg_afm:
 
   @staticmethod 
   def pre_impurity(data):
-    data.get_Uweiss(dyson.scalar.J_from_P_and_chi)
+    data.get_Uweiss_from_chi(dyson.scalar.J_from_P_and_chi)
 
     prepare_G0_iw_atomic(data.solver.G0_iw, data.mus, data.fermionic_struct)
     prepare_D0_iw(data.solver.D0_iw, data.Uweiss_iw, data.fermionic_struct, data.bosonic_struct) 
@@ -339,7 +342,7 @@ class edmft_tUVJ_pm:
   @staticmethod 
   def pre_impurity(data, mutilde, U, V, J):
     data.get_Gweiss(func = dict.fromkeys(data.fermionic_struct.keys(), dyson.scalar.J_from_P_and_W) )
-    data.get_Uweiss(func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.J_from_P_and_W) )
+    data.get_Uweiss_from_W(func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.J_from_P_and_W) )
 
     data.Uweiss_dyn_iw << data.Uweiss_iw #prepare the non-static part - static part goes separately in the impurity solver  
     for A in data.bosonic_struct.keys(): 
@@ -362,7 +365,7 @@ class edmft_tUVJ_pm:
   @staticmethod 
   def post_impurity(data, mutilde, U):
     dmft_hubbard_pm.post_impurity(data) 
-    edmft.post_impurity.W_self_consistency(data, func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.P_from_chi_and_J ) )
+    edmft.post_impurity(data, func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.P_from_chi_and_J ) )
 
     if mutilde==0.0: #this is correct only at PH symmetry!!!! be careful add a flag or something 
       for i in range(data.nw):
@@ -392,7 +395,7 @@ class GW_hubbard_pm:
   @staticmethod 
   def pre_impurity(data, mutilde, U, alpha):
     data.get_Gweiss(func = dict.fromkeys(['up', 'down'], dyson.scalar.J_from_P_and_W) )
-    data.get_Uweiss(func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.J_from_P_and_W) )
+    data.get_Uweiss_from_W(func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.J_from_P_and_W) )
 
     data.Uweiss_dyn_iw << data.Uweiss_iw #prepare the non-static part - static part goes separately in the impurity solver  
     for A in data.bosonic_struct.keys(): 
@@ -438,7 +441,9 @@ class trilex_hubbard_pm:
   def __init__(self, mutilde, U, alpha, bosonic_struct): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
     self.selfenergy = GW.selfenergy
     #self.lattice = partial(GW.lattice, funcG = dyson.scalar.W_from_P_and_J, funcW = dyson.scalar.W_from_P_and_J)
-    self.lattice = partial(GW.lattice, funcG =  dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma), funcW =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J) )
+    self.lattice = partial( GW.lattice, 
+                              funcG =  dict.fromkeys( ['up', 'down'],        dyson.scalar.G_from_w_mu_epsilon_and_Sigma ),
+                              funcW =  dict.fromkeys( bosonic_struct.keys(), dyson.scalar.W_from_P_and_J                )   )
     self.pre_impurity = partial(GW_hubbard_pm.pre_impurity, mutilde=mutilde, U=U, alpha=alpha)
     self.cautionary = GW.cautionary()    
     self.post_impurity = partial(self.post_impurity, mutilde=mutilde, U=U )

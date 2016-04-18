@@ -1,3 +1,12 @@
+import math
+import cmath
+from math import pi, cos, sin, exp
+from functools import partial
+import numpy
+import pytriqs.utility.mpi as mpi
+from data_types import IBZ
+import copy
+
 ################################ general initializers ##########################################
 
 def sgn(x):
@@ -138,43 +147,48 @@ class bubble:
     @staticmethod
     def simple(nk, G1 = lambda kxi, kyi: 0.0, G2  = lambda kxi, kyi: 0.0, use_IBZ_symmetry = True):
       # --- genereral k sum in a GW and GG bubles by means of straightforward k summation
-      res = numpy.zeros((nk,nk), dtype = complex_)
+      res = numpy.zeros((nk,nk), dtype = numpy.complex_)
       if use_IBZ_symmetry: max_kxi1 = nk/2+1
       else: max_kxi1 = nk
       for kxi1 in range(max_kxi1):
         if use_IBZ_symmetry: max_kyi1 = kxi1+1
         else: max_kyi1 = nk
         for kyi1 in range(max_kyi1):
+          #print "kxi1: ",kxi1," ky1: ",kyi1
           for kxi2 in range(nk):
             for kyi2 in range(nk):
-          res[kxi1,kyi1] += G1(kxi1+kxi2, kyi1+kyi2)*G2(kxi2, kyi2)         
+              res[kxi1,kyi1] += G1(kxi1+kxi2, kyi1+kyi2)*G2(kxi2, kyi2)  
+      if use_IBZ_symmetry: IBZ.copy_by_symmetry(res[:,:], nk)     
       return res/nk**2.0
 
   class wsum:
     @staticmethod
     def non_local(  beta,
-                    nw1, nw2, nk, wi1_list = []
+                    nw1, nw2, nk, wi1_list = [],
                     G1 = lambda wi, kxi, kyi: 0.0,   G2 = lambda wi, kxi, kyi: 0.0,  Lambda = lambda wi1, wi2: 1.0, 
                     freq_sum = lambda wi1, wi2: wi1 + wi2, 
-                    func = bubble.ksum.FT ): #for func otherwise use bubble_ksum partially evaluated for use_IBZ_symmetry
-      res = numpy.zeros((nw1,nk,nk), dtype=complex_) 
-      for wi1 in (range(nw1) if wi1_list==[] else wi1_list):
+                    func = None ): #for func use bubble.ksum.FT or bubble.ksum.simple partially evaluated for use_IBZ_symmetry
+      res = numpy.zeros((nw1,nk,nk), dtype=numpy.complex_) 
+      for wi1 in (range(nw1) if wi1_list==[] else wi1_list):        
         if wi1 % mpi.size != mpi.rank: continue       
+        print "wi1: ", wi1
         for wi2 in range(nw2):
-          res[wi,:,:] += Lambda(wi1, wi2) * func(nk = nk,  G1 = lambda kxi, kyi: G1(freq_sum(wi1,wi2),kxi,kyi), G2 = lambda kxi, kyi: G2(wi2,kxi,kyi))
+          wi12 = freq_sum(wi1,wi2)
+          res[wi1,:,:] += Lambda(wi1, wi2) * func(nk = nk,  G1 = lambda kxi, kyi: G1(wi12,kxi,kyi), G2 = lambda kxi, kyi: G2(wi2,kxi,kyi))
       res[:,:,:] = mpi.all_reduce(0, res, 0)       
       return res/beta
 
     @staticmethod
     def local    (  beta,
-                    nw1, nw2, wi1_list = []
+                    nw1, nw2, wi1_list = [],
                     G1 = lambda wi: 0.0,   G2 = lambda wi: 0.0,  Lambda = lambda wi1, wi2: 1.0, 
-                    freq_sum = lambda wi1, wi2: wi1 + wi2 ): #the parameters with None default value are not really used but are here to make the function 
-      res = numpy.zeros((nw1,nk,nk), dtype=complex_)      
+                    freq_sum = lambda wi1, wi2: wi1 + wi2 ): 
+      res = numpy.zeros((nw1,nk,nk), dtype=numpy.complex_)      
       for wi1 in (range(nw1) if wi1_list==[] else wi1_list):      
         if wi1 % mpi.size != mpi.rank: continue       
         for wi2 in range(nw2):
-          res[wi1] += Lambda(wi1, wi2) * G1(freq_sum(wi1,wi2)) * G2(wi2)
+          wi12 = freq_sum(wi1,wi2) 
+          res[wi1] += Lambda(wi1, wi2) * G1(wi12) * G2(wi2)
       res[:] = mpi.all_reduce(0, res, 0)       
       return res/beta
 
@@ -184,7 +198,7 @@ class bubble:
                Sigma, G, W, Lambda, 
                func,
                su2_symmetry, ising_decoupling ):
-      for U in self.fermionic_struct.keys():
+      for U in fermionic_struct.keys():
         if su2_symmetry and U!='up': continue      
         Sigma[U].fill(0.0) 
         for V in fermionic_struct.keys():            
@@ -233,3 +247,5 @@ def safe_and_stupid_scalar_P_imp(safe_value, P_imp):
   P_imp.data[nw/2-2,0,0] = safe_value*0.1
   P_imp.data[nw/2+3,0,0] = safe_value*0.05
   P_imp.data[nw/2-3,0,0] = safe_value*0.05
+
+

@@ -13,13 +13,22 @@ import pytriqs.utility.mpi as mpi
 #from glattice_tools.multivar import *  
 #from trilex.tools import *
 #from selfconsistency.useful_functions import adjust_n_points
-from selfconsistency.provenance import hash_dict
+#from selfconsistency.provenance import hash_dict
 
 ############################################## MAIN CODES ###################################
 from dmft_loop import *
 from data_types import *
+import formulae
+from formulae import *
+from formulae import dyson
+print "just imported dyson"
+a = partial( dyson.scalar.W_from_P_and_J, P = 0.3 )
+print a(J =0.2)
+from formulae import bubble
+
 from schemes import *
 from impurity_solvers import *
+
 #--------------------------- hubbard pm half-filled single T multiple (U,mu), as [Us]x[mus]---------------------------------#
 def pm_hubbard_calculation( T, Us, mutildes, dispersion, #necessary to partially evaluate dispersion!!! the calculation does not need to know about t
                             rules = [[0, 0.5], [3, 0.0], [10, 0.65]], n_loops_max=25, 
@@ -430,6 +439,7 @@ def pm_tUVJ_calculation( T, mutildes=[0.0],
 #--------------parameters fixed------------------#
 
 import itertools
+from formulae import dyson
 def pm_hubbard_GW_calculation( T, mutildes=[0.0], 
                             ts=[0.25], t_dispersion = epsilonk_square,
                             Us = [1.0], alpha=2.0/3.0,                            
@@ -449,12 +459,12 @@ def pm_hubbard_GW_calculation( T, mutildes=[0.0],
 
   beta = 1.0/T 
   
-  n_iw = int(((30.0*beta)/math.pi-1.0)/2.0)
+  n_iw = int(((20.0*beta)/math.pi-1.0)/2.0)
   if mpi.is_master_node():
     print "PM HUBBARD GW: n_iw: ",n_iw
   n_tau = int(n_iw*pi)
 
-  n_q = 64
+  n_q = 6
   n_k = n_q
 
   #init solver
@@ -548,12 +558,8 @@ def pm_hubbard_GW_calculation( T, mutildes=[0.0],
       del vks['0']
     
     dt.fill_in_Jq( vks )  
-
-    dt.fill_in_ks()
     dt.fill_in_epsilonk(dict.fromkeys(['up','down'], partial(t_dispersion, t=t)))
 
-    if mpi.is_master_node():
-      dt.dump_non_interacting()
     if trilex: 
       preset = trilex_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct)
     else:

@@ -15,7 +15,7 @@ import pytriqs.utility.mpi as mpi
 from cthyb_spin import Solver
 from ctint import SolverCore
 #from selfconsistency.useful_functions import adjust_n_points
-from selfconsistency.provenance import hash_dict
+#from selfconsistency.provenance import hash_dict
 
 import copy
 

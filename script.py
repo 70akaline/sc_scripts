@@ -1,4 +1,5 @@
 from calculations import *
+from formulae import *
 from schemes import *
 
 
@@ -29,6 +30,22 @@ from schemes import *
 #                         use_cthyb=True, n_cycles=40000, max_time=10*60,
 #                         initial_guess_archive_name = "/home/jvucicev/TRIQS/run/sc_scripts/GW.mutilde0.0.t0.25.U2.2.alpha0.5.T0.1.h5", suffix='-25')
 
+
+T = 1.0/16.0
+U = 2.0##3.0
+for alpha in [0.45,0.50,0.55]:
+  for mutilde in [0.0]:#[0.0, 0.4, 0.5, 0.55, 0.6, 0.65, 0.7]:
+    pm_hubbard_GW_calculation( T=T,
+                         mutildes=[mutilde], 
+                         ts=[0.25], t_dispersion = epsilonk_square,
+                         Us = [U], alpha = alpha, #2.0/3.0,
+                         n_loops_min = 5, n_loops_max=15, rules = [[0, 0.5], [4, 0.2], [10,0.0]],
+                         trilex=True,
+                         use_cthyb=True, n_cycles=400000, max_time=30*60,
+                         initial_guess_archive_name = '', suffix='')
+
+
+quit()
 
 T = 1.0/16.0
 U = 2.0##3.0

@@ -55,6 +55,10 @@ class dmft_loop:
     if not (self.cautionary is None):
       self.cautionary.reset() 
 
+    if mpi.is_master_node():
+        data.dump_parameters(suffix='')
+        data.dump_non_interacting(suffix='')
+
     converged = False     
     for loop_index in range(n_loops_max):
       if mpi.is_master_node():
@@ -88,8 +92,9 @@ class dmft_loop:
           mixer.mix(loop_index)
 
       if mpi.is_master_node():
-        data.dump_loc(suffix='-%s'%loop_index)
-        if print_non_loc: data.dump_non_loc(suffix='-%s'%loop_index)          
+        data.dump_scalar(suffix='-%s'%loop_index)
+        data.dump_local(suffix='-%s'%loop_index)
+        if print_non_loc: data.dump_non_local(suffix='-%s'%loop_index)          
         A = HDFArchive(data.archive_name)
         A['max_index'] = loop_index
         del A
@@ -101,7 +106,7 @@ class dmft_loop:
 
     if converged:
       if mpi.is_master_node():
-        data.dump_non_loc(suffix='-final') 
+        data.dump_all(suffix='-final') 
       return 0  
     else:
       return 1 #maximum number of loops reached  
