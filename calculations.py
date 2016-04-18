@@ -21,9 +21,6 @@ from data_types import *
 import formulae
 from formulae import *
 from formulae import dyson
-print "just imported dyson"
-a = partial( dyson.scalar.W_from_P_and_J, P = 0.3 )
-print a(J =0.2)
 from formulae import bubble
 
 from schemes import *
@@ -442,7 +439,8 @@ import itertools
 from formulae import dyson
 def pm_hubbard_GW_calculation( T, mutildes=[0.0], 
                             ts=[0.25], t_dispersion = epsilonk_square,
-                            Us = [1.0], alpha=2.0/3.0,                            
+                            Us = [1.0], alpha=2.0/3.0, 
+                            n_ks = [6, 12, 24, 36, 64],
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
                             trilex = False,
                             use_cthyb=True, n_cycles=100000, max_time=10*60,
@@ -464,7 +462,7 @@ def pm_hubbard_GW_calculation( T, mutildes=[0.0],
     print "PM HUBBARD GW: n_iw: ",n_iw
   n_tau = int(n_iw*pi)
 
-  n_q = 6
+  n_q = n_ks[0]
   n_k = n_q
 
   #init solver
@@ -534,7 +532,7 @@ def pm_hubbard_GW_calculation( T, mutildes=[0.0],
   err = 0
   #initial guess
   
-  ps = itertools.product(mutildes,ts,Us)
+  ps = itertools.product(mutildes,ts,Us,n_ks)
 
   counter = 0
   for p in ps:    
@@ -542,10 +540,13 @@ def pm_hubbard_GW_calculation( T, mutildes=[0.0],
     mutilde = p[0]
     t = p[1]
     U = p[2]
+    nk = p[3]
+    dt.change_ks(IBZ.k_grid(nk))
+
     if trilex:
-      dt.archive_name="trilex.mutilde%s.t%s.U%s.alpha%s.T%s.h5"%(mutilde,t,U,alpha,T)
+      dt.archive_name="trilex.mutilde%s.t%s.U%s.alpha%s.T%s.nk%s.h5"%(mutilde,t,U,alpha,T,nk )
     else:
-      dt.archive_name="GW.mutilde%s.t%s.U%s.alpha%s.T%s.h5"%(mutilde,t,U,alpha,T)
+      dt.archive_name="GW.mutilde%s.t%s.U%s.alpha%s.T%s.nk%s.h5"%(mutilde,t,U,alpha,T,nk)
     for conv in convergers:
       conv.archive_name = dt.archive_name
 
@@ -613,7 +614,7 @@ def pm_hubbard_GW_calculation( T, mutildes=[0.0],
    
     mpi.barrier()
     #run dmft!-------------
-    err += dmft.run(dt, n_loops_max=n_loops_max, n_loops_min=n_loops_min, print_non_loc=True)
+    err += dmft.run(dt, n_loops_max=n_loops_max, n_loops_min=n_loops_min,  print_three_leg=1, print_non_local=1 )
     counter += 1
   return err
 

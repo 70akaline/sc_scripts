@@ -145,7 +145,7 @@ class bubble:
       return numpy.fft.fft2( [[ G1ij[i,j]*G2ij[i,j] for j in range(nk) ] for i in range(nk) ] )
 
     @staticmethod
-    def simple(nk, G1 = lambda kxi, kyi: 0.0, G2  = lambda kxi, kyi: 0.0, use_IBZ_symmetry = True):
+    def simple(nk, G1 = lambda kxi, kyi: 0.0, G2  = lambda kxi, kyi: 0.0, use_IBZ_symmetry = True):      
       # --- genereral k sum in a GW and GG bubles by means of straightforward k summation
       res = numpy.zeros((nk,nk), dtype = numpy.complex_)
       if use_IBZ_symmetry: max_kxi1 = nk/2+1
@@ -171,7 +171,7 @@ class bubble:
       res = numpy.zeros((nw1,nk,nk), dtype=numpy.complex_) 
       for wi1 in (range(nw1) if wi1_list==[] else wi1_list):        
         if wi1 % mpi.size != mpi.rank: continue       
-        print "wi1: ", wi1
+        #print "wi1: ", wi1
         for wi2 in range(nw2):
           wi12 = freq_sum(wi1,wi2)
           res[wi1,:,:] += Lambda(wi1, wi2) * func(nk = nk,  G1 = lambda kxi, kyi: G1(wi12,kxi,kyi), G2 = lambda kxi, kyi: G2(wi2,kxi,kyi))

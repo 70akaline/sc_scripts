@@ -47,7 +47,9 @@ class dmft_loop:
     self.mixers = mixers        
     self.after_it_is_done = after_it_is_done 
 
-  def run(self, data, n_loops_max=100, n_loops_min=5, print_non_loc=False):
+  def run(self, data, 
+                n_loops_max=100, n_loops_min=5, 
+                print_non_local=1, print_three_leg=1): #1 every iteration, 2 every second, -2 never (except for final)
     for mixer in self.mixers:
       mixer.get_initial()
     for conv in self.convergers:
@@ -94,7 +96,8 @@ class dmft_loop:
       if mpi.is_master_node():
         data.dump_scalar(suffix='-%s'%loop_index)
         data.dump_local(suffix='-%s'%loop_index)
-        if print_non_loc: data.dump_non_local(suffix='-%s'%loop_index)          
+        if (loop_index + 1) % print_three_leg == 0: data.dump_three_leg(suffix='-%s'%loop_index)
+        if (loop_index + 1) % print_non_local == 0: data.dump_non_local(suffix='-%s'%loop_index)          
         A = HDFArchive(data.archive_name)
         A['max_index'] = loop_index
         del A

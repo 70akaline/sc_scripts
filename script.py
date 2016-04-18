@@ -33,7 +33,7 @@ from schemes import *
 
 T = 1.0/16.0
 U = 2.0##3.0
-for alpha in [0.45,0.50,0.55]:
+for alpha in [0.45]:
   for mutilde in [0.0]:#[0.0, 0.4, 0.5, 0.55, 0.6, 0.65, 0.7]:
     pm_hubbard_GW_calculation( T=T,
                          mutildes=[mutilde], 

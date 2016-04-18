@@ -168,7 +168,7 @@ def prepare_G0_iw(G0_iw, Gweiss, fermionic_struct, starting_iw=14.0):
      G0_iw[U] << Gweiss[U]
      nmax = G0_iw[U].mesh.last_index()
      nmin = int(((starting_iw*G0_iw.beta)/math.pi-1.0)/2.0) 
-     G0_iw[U].fit_tail(known_coeff,5,nmin,nmax)
+     G0_iw[U].fit_tail(known_coeff,5,nmin,nmax, True)
 
 def prepare_G0_iw_atomic(G0_iw, mus, fermionic_struct):
   known_coeff = TailGf(1,1,3,-1)
@@ -179,7 +179,7 @@ def prepare_G0_iw_atomic(G0_iw, mus, fermionic_struct):
      G0_iw[U] << inverse(iOmega_n+mus[U])
      nmax = G0_iw[U].mesh.last_index()
      nmin = nmax/2
-     G0_iw[U].fit_tail(known_coeff,5,nmin,nmax)
+     G0_iw[U].fit_tail(known_coeff,5,nmin,nmax, True)
 
 def prepare_Jperp_iw(Jperp_iw, Uweiss_iw): #takes a single block
   Jperp_iw << Uweiss_iw
@@ -188,7 +188,7 @@ def prepare_Jperp_iw(Jperp_iw, Uweiss_iw): #takes a single block
   fixed_coeff[0] = array([[0.]])
   nmax = Jperp_iw.mesh.last_index()
   nmin = nmax/2
-  Jperp_iw.fit_tail(fixed_coeff, 5, nmin, nmax) #!!!!!!!!!!!!!!!1
+  Jperp_iw.fit_tail(fixed_coeff, 5, nmin, nmax, True) #!!!!!!!!!!!!!!!1
 
 def prepare_D0_iw(D0_iw, Uweiss_iw, fermionic_struct, bosonic_struct):
   for U in fermionic_struct.keys():
@@ -207,7 +207,7 @@ def prepare_D0_iw(D0_iw, Uweiss_iw, fermionic_struct, bosonic_struct):
       fixed_coeff[0] = array([[0.]])
       nmax = D0_iw[U+'|'+V].mesh.last_index()
       nmin = nmax/2
-      D0_iw[U+'|'+V].fit_tail(fixed_coeff, 5, nmin, nmax)
+      D0_iw[U+'|'+V].fit_tail(fixed_coeff, 5, nmin, nmax, True)
 
 def extract_Sigma_from_F_and_G(Sigma_iw, F_iw, G_iw):
   Sigma_iw << inverse(G_iw)*F_iw
