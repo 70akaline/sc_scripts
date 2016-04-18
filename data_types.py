@@ -15,11 +15,11 @@ import pytriqs.utility.mpi as mpi
 #from glattice_tools.multivar import *  
 #from trilex.tools import *
 #from cthyb_spin import Solver  
-from impurity_solvers import *
 #from selfconsistency.useful_functions import adjust_n_points
 #from selfconsistency.provenance import hash_dict
 import copy
 
+from impurity_solvers import *
 from formulae import bubble
 
 ####################################################################################
@@ -85,22 +85,22 @@ class mats_freq:
     for i in range(n1):
       for j in range(n2):
         tail = [Q_old.tail[l][i,j] for l in range(len(4))]
-        wrapper = lambda iw:  tail[0]\ 
-                            + tail[1]/(iw)\ 
-                            + tail[2]/(iw**2.0))\
-                            + tail[3]/(iw**3.0)) 
+        wrapper = lambda iw:  tail[0]\
+                            + tail[1]/(iw)\
+                            + tail[2]/(iw**2.0)\
+                            + tail[3]/(iw**3.0)
 
         mats_freq.change_temperature(Q_old.data[:,i,j], Q_new.data[:,i,j], ws_old, ws_new, wrapper)   
 
   @staticmethod
   def get_tail_from_numpy_array(self, Q, beta, statistic, n_iw, positive_only=False): #get a tail for a gf stored in a numpy array
     g = GfImFreq(indices = [0], beta = beta, n_points = n_iw, statistic = statistic)
-    if statistic='Fermion': 
+    if statistic=='Fermion': 
       nw = n_iw*2
       if positive_only: 
         nw = n_iw
         shift = n_iw
-    if statistic='Boson':
+    if statistic=='Boson':
       nw = n_iw*2-1
       if positive_only: 
         shift = n_iw-1 
@@ -108,9 +108,9 @@ class mats_freq:
     for i in range(nw):
       g.data[i+shift,0,0] = Q[i]
       if positive_only: 
-        if statistic='Fermion': 
+        if statistic=='Fermion': 
           g.data[shift-i-1,0,0] = Q[i]
-        if statistic='Boson': 
+        if statistic=='Boson': 
           g.data[shift-i,0,0] = Q[i]
       fixed_coeff = TailGf(1,1,1,-1) 
       fixed_coeff[-1] = array([[0.]])
@@ -257,44 +257,12 @@ class basic_data:
 
     #---------quantity dictionaries
 
-    self.basic_quantities = {      'err': lambda: self.err,
-                                   'n_iw': lambda: self.n_iw,
-                                   'n_nnu': lambda: self.n_nnu,
-                                   'n_nw': lambda: self.n_nw,
-                                   'beta': lambda: self.beta,
-                                   'fermionic_struct': lambda: self.fermionic_struct,
-                                   'bosonic_struct': lambda: self.bosonic_struct,
-                                   'mus': lambda: self.mus,
-                                   'ns': lambda: self.ns,
-                                   'Sz': lambda: self.Sz }
+    self.basic_quantities = ['err', 'n_iw', 'nnu', 'nw', 'beta','fermionic_struct', 'bosonic_struct', 'mus', 'ns', 'Sz']
 
-    #the following is unfortunately necessary because some of the basic quantities are immutable. maybe find a better way?
-    self.basic_quantity_setters = {'err': self.set_err,
-                                   'n_iw': self.set_n_iw,
-                                   'nnu': self.set_nnu,
-                                   'nw': self.set_nw,
-                                   'beta': self.set_beta,
-                                   'fermionic_struct': self.set_fermionic_struct,
-                                   'bosonic_struct': self.set_bosonic_struct,
-                                   'mus':self.set_mus,
-                                   'ns': self.set_ns,
-                                   'Sz': self.set_Sz }
- 
-    self.non_interacting_quantities = {}
-    self.local_quantities = {}
-    self.non_local_quantities = {}
-    self.three_leg_quantities = {}
-
-  def set_err(self, err): self.err=err
-  def set_n_iw(self, n_iw): self.n_iw=n_iw
-  def set_nnu(self, nnu): self.nnu=nnu
-  def set_nw(self, nw): self.nw=nw
-  def set_beta(self, beta): self.beta=beta
-  def set_fermionic_struct(self, fs): self.fermionic_struct=copy.deepcopy(fs)
-  def set_bosonic_struct(self, bs): self.bosonic_struct=copy.deepcopy(bs)
-  def set_mus(self, mus): self.mus=copy.deepcopy(mus)
-  def set_ns(self, ns): self.ns=copy.deepcopy(ns)
-  def set_Sz(self, Sz): self.Sz=Sz
+    self.non_interacting_quantities = []
+    self.local_quantities = []
+    self.non_local_quantities = []
+    self.three_leg_quantities = []
 
   def fmats_freq(self, n): return mats_freq.fermionic(n, beta)
   def bmats_freq(self, m): return mats_freq.bosonic(m, beta)
@@ -317,12 +285,12 @@ class basic_data:
     A['Jperp_iw%s'%suffix] = self.solver.Jperp_iw
     del A 
 
-  def dump_general(self, quantities, archive_name=None, suffix='')
+  def dump_general(self, quantities, archive_name=None, suffix=''):
     if archive_name is None:
       archive_name = self.archive_name    
     A = HDFArchive(archive_name)
-    for key in quantities.keys():
-      A['%s%s'%(key,suffix)] = quantities[key]()
+    for key in quantities:
+      A['%s%s'%(key,suffix)] = vars(self)[key]
     del A
 
   def dump_basic(self, archive_name=None, suffix=''):
@@ -352,31 +320,24 @@ class basic_data:
     if archive_name is None:
       archive_name = self.archive_name    
 
-    all_quantities = dict(   non_interacting_quantities.items()\
-                           + local_quantities.items()\
-                           + non_local_quantities.items()\
-                           + three_leg_quantities.items() )
+    all_quantities =    basic_quantities\
+                      + non_interacting_quantities\
+                      + local_quantities\
+                      + non_local_quantities\
+                      + three_leg_quantities
     if mpi.is_master_node():
       A = HDFArchive(archive_name, 'r')
-      for key in all_quantities.keys():
+      for key in all_quantities:
         try:
-          self.all_quantities[key]() = copy.deepcopy(A['%s%s'%(key,suffix)]) 
-        except:
-          print "WARNING: key ",key," not found in archive!! "  
-
-      for key in self.basic_quantity_setters.keys(): 
-        try:
-          self.basic_quantity_setters[key](A['%s%s'%(key,suffix)])
+          vars(self)[key] = copy.deepcopy(A['%s%s'%(key,suffix)]) 
         except:
           print "WARNING: key ",key," not found in archive!! "  
 
       del A
 
     for key in all_quantities:
-      all_quantities[key]() = copy.deepcopy( mpi.bcast(self.all_quantities[key]()) ) 
+      vars(self)[key] = copy.deepcopy( mpi.bcast(vars(self)[key]) ) 
 
-    for key in self.basic_quantity_setters.keys(): 
-      self.basic_quantity_setters[key](mpi.bcast(self.basic_quantities[key]()))       
 
 class bosonic_data(basic_data):
   def __init__(self, n_iw, 
@@ -392,8 +353,7 @@ class bosonic_data(basic_data):
   def promote(n_q):
     self.n_q = n_q
 
-    self.basic_quantities.update( {'n_q': lambda: self.n_q } )
-    self.basic_quantity_setters.update( {'n_q': self.set_n_q } )
+    self.basic_quantities.extend( ['n_q'] )
 
     gs = []
     for A in bosonic_struct.keys(): 
@@ -416,16 +376,9 @@ class bosonic_data(basic_data):
     self.Uweiss_iw = BlockGf(name_list = bosonic_struct.keys(), block_list = gs, make_copies = True)
     self.Uweiss_dyn_iw = BlockGf(name_list = bosonic_struct.keys(), block_list = gs, make_copies = True)
 
-    self.local_bosonic_gfs = {     'W_imp_iw': lambda: self.W_imp_iw,
-                                   'W_loc_iw': lambda: self.W_loc_iw,
-                                   'chi_loc_iw': lambda: self.chi_loc_iw,
-                                   'chi_imp_iw': lambda: self.chi_imp_iw,
-                                   'P_imp_iw': lambda: self.P_imp_iw,
-                                   'P_loc_iw': lambda: self.P_loc_iw,
-                                   'Uweiss_iw': lambda: self.Uweiss_iw,
-                                   'Uweiss_dyn_iw': lambda: self.Uweiss_dyn_iw  } 
+    self.local_bosonic_gfs = [ 'W_imp_iw', 'W_loc_iw','chi_loc_iw', 'chi_imp_iw', 'P_imp_iw','P_loc_iw', 'Uweiss_iw', 'Uweiss_dyn_iw'] 
 
-    self.local_quantities.update( local_bosonic_gfs )
+    self.local_quantities.extend( local_bosonic_gfs )
 
     #this one is missing from segment solver - just to keep the fourier transform of what comes from the chipm_tau measurement
     self.chipm_iw = GfImFreq(indices = bosonic_struct[bosonic_struct.keys()[0]], beta = beta, n_points = n_iw, statistic = 'Boson')
@@ -442,15 +395,11 @@ class bosonic_data(basic_data):
       self.chiqnu[A] = numpy.zeros((self.nnu, n_q, n_q), dtype=numpy.complex_)
       self.Wqnu[A] = numpy.zeros((self.nnu, n_q, n_q), dtype=numpy.complex_)
 
-    self.non_interacting_quantities.update( {'qs': lambda: self.qs,
-                                             'Jq': lambda: self.Jq } )
+    self.non_interacting_quantities.extend( ['qs','Jq'] )
 
+    self.non_local_bosonic_gfs = ['chiqnu','Wqnu']
+    self.non_local_quantities.extend( self.non_local_bosonic_gfs )
 
-    self.non_local_bosonic_gfs = { 'chiqnu': lambda: self.chiqnu,
-                                     'Wqnu': lambda: self.Wqnu }
-    self.non_local_quantities.update( self.non_local_bosonic_gfs )
-
-  def set_n_q(self, n_q): self.n_q = n_q
 
   def nu_from_nui(self, nui): return self.bmats_freq(self.m_from_nui(nui))
   def m_to_nui(self, m):      return m+self.nnu/2
@@ -593,12 +542,9 @@ class fermionic_data(basic_data):
     basic_data.__init__(self, n_iw, beta, solver, bosonic_struct, fermionic_struct, archive_name) 
     self.promote(n_k)
 
-  def set_n_k(self, n_k): self.n_k = n_k
-
   def promote(n_k):
     self.n_k = n_k
-    self.basic_quantities.update( {'n_k': lambda: self.n_k } )
-    self.basic_quantity_setters.update( {'n_k': self.set_n_k } )
+    self.basic_quantities.extend( ['n_k'] )
 
     gs = []
     for U in fermionic_struct.keys(): 
@@ -618,13 +564,13 @@ class fermionic_data(basic_data):
     self.Sigma_loc_iw = BlockGf(name_list = fermionic_struct.keys(), block_list = gs, make_copies = True)
     self.Gweiss_iw = BlockGf(name_list = fermionic_struct.keys(), block_list = gs, make_copies = True)
 
-    self.local_fermionic_gfs = {   'G_imp_iw': lambda: self.G_imp_iw,
-                                   'G_loc_iw': lambda: self.G_loc_iw,
-                                   'Sigma_imp_iw': lambda: self.Sigma_imp_iw,
-                                   'Sigma_loc_iw': lambda: self.Sigma_loc_iw,
-                                   'Gweiss_iw': lambda: self.Gweiss_iw}
+    self.local_fermionic_gfs = [ 'G_imp_iw',
+                                   'G_loc_iw',
+                                   'Sigma_imp_iw',
+                                   'Sigma_loc_iw',
+                                   'Gweiss_iw' ]
 
-    self.local_quantities.update( self.local_fermionic_gfs )
+    self.local_quantities.extend( self.local_fermionic_gfs )
    
     self.ks = k_grid(n_k)
     self.epsilonk = {}
@@ -638,17 +584,17 @@ class fermionic_data(basic_data):
       self.G0kw[U] = numpy.zeros((self.nw, n_k, n_k), dtype=numpy.complex_)
       self.epsilonk[U] = numpy.zeros((n_k, n_k), dtype=numpy.complex_)
 
-    self.non_interacting_quantities.update( {'ks': lambda: self.ks,
-                                             'epsilonk': lambda: self.epsilonk,
-                                             'G0kw': lambda: self.G0kw } )
-    self.non_local_quantities.update( {'Gkw': lambda: self.Gkw} )
+    self.non_interacting_quantities.extend( ['ks',
+                                             'epsilonk',
+                                             'G0kw'] )
+    self.non_local_quantities.extend( ['Gkw'] )
 
-    self.non_local_fermionic_gfs = { 'G0kw': lambda: self.G0kw,
-                                     'Gkw': lambda: self.Gkw  } 
+    self.non_local_fermionic_gfs = [ 'G0kw',
+                                     'Gkw' ] 
 
-  def w_from_wi(self, wi):        return self.fmats_freq(self.n_from_wi(wi))
+  def w_from_wi(self, wi): return self.fmats_freq(self.n_from_wi(wi))
   def n_to_wi(self, n):    return n+self.nw/2  
-  def n_from_wi(self, wi):        return wi-self.nw/2  
+  def n_from_wi(self, wi): return wi-self.nw/2  
 
   def fill_in_epsilonk(self, func):
     for U in self.fermionic_struct.keys():
@@ -801,12 +747,12 @@ class GW_data(edmft_data):
       self.Wtildeqnu[A] = numpy.zeros((self.nnu, n_q, n_q), dtype=numpy.complex_)
 
    
-    new_quantities = {'Sigmakw': lambda: self.Sigmakw,
-                      'Gtildekw': lambda: self.Gtildekw,
-                      'Pqnu': lambda: self.Pqnu,
-                      'Wtildeqnu': lambda: self.Wtildeqnu}
-    self.non_local_fermionic_gfs.update( new_quantities )
-    self.non_local_quantities.update( new_quantities )
+    new_quantities = ['Sigmakw',
+                      'Gtildekw',
+                      'Pqnu',
+                      'Wtildeqnu']
+    self.non_local_fermionic_gfs.extend( new_quantities )
+    self.non_local_quantities.extend( new_quantities )
 
   def get_Gkw(self, func):
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: func[U](self.Sigmakw[U][i,kx,ky], self.G0kw[U][i,kx,ky]) )
@@ -842,8 +788,8 @@ class GW_data(edmft_data):
         elif statistic == 'Boson':
           w = nu_from_nui(wi)
         else: print "ERROR: statistic not recognized!" 
-        return   tail[0]\ 
-               + tail[1]/((1j*w))\
+        return   tail[0]\
+               + tail[1]/(1j*w)\
                + tail[2]/((1j*w)**2.0)\
                + tail[3]/((1j*w)**3.0)
       else:
@@ -863,12 +809,13 @@ class GW_data(edmft_data):
     bubble.full.Sigma\
                 ( self.fermionic_struct, self.bosonic_struct, 
                   self.Sigmakw, partial(self.lattice_gf_wrapper, g=self.Gtildekw), partial(self.lattice_gf_wrapper, g=self.Wtildekw), Lambda = Lambda, 
-                  func = partial(bubble.wsum.non_local, 
+                  func = partial( bubble.wsum.non_local, 
                                     beta=self.beta,
                                     nw1 = self.nw, nw2 = self.nnu,  
                                     nk=self.n_k, wi1_list = wi_list,                             
                                     freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2), 
-                                    func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_UBZ_symmetry)),
+                                    func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_UBZ_symmetry)\
+                                ),
                   su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling )
     for U in self.fermionic_struct.keys():
       for wi in (range(self.nw) if wi_list==[] else wi_list):
@@ -881,12 +828,13 @@ class GW_data(edmft_data):
     bubble.full.P\
                 ( self.fermionic_struct, self.bosonic_struct, 
                   self.Pqnu, partial(self.lattice_gf_wrapper, g=self.Gtildekw), Lambda = Lambda, 
-                  func = partial(bubble.wsum.non_local, 
+                  func = partial( bubble.wsum.non_local, 
                                     beta=self.beta,
                                     nw1 = self.nnu, nw2 = self.nw,  
                                     nk=self.n_k, wi1_list = nui_list,                             
                                     freq_sum = lambda wi1, wi2: wi2 + self.m_from_nui(wi1), 
-                                    func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_UBZ_symmetry),
+                                    func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_UBZ_symmetry)\
+                                ),
                   su2_symmetry=su2_symmetry )
     for A in self.bosonic_struct.keys():
       for nui in (range(self.nnu) if nui_list==[] else nui_list):
@@ -943,7 +891,8 @@ class trilex_data(GW_data):
   def promote(self, n_iw_f, n_iw_b):       
     self.n_iw_f = n_iw_f + n_iw_f % 2
     self.n_iw_b = n_iw_b + n_iw_b % 2
-    if self.n_iw_f != n_iw_f or self.n_iw_b != n_iw_b: if mpi.is_master_done(): print "WARNING: n_iw_f increased by 1 to be made even!!!"
+    if ((self.n_iw_f != n_iw_f) or (self.n_iw_b != n_iw_b)) and mpi.is_master_done(): 
+      print "WARNING: n_iw_f increased by 1 to be made even!!!"
     self.nw_v = self.n_iw_f*2
     self.nnu_v = self.n_iw_b
     self.w_vs = [ self.w_from_wi_v(wi_v) for wi_v in range(self.nw_v) ]
@@ -951,14 +900,10 @@ class trilex_data(GW_data):
     self.iw_vs = [ 1j*w_v for w_v in w_vs ]
     self.inu_vs = [ 1j*nu_v for nu_v in nu_vs ]
 
-    self.basic_quantities.update( {'n_iw_f': lambda: self.n_iw_f,
-                                   'n_iw_b': lambda: self.n_iw_b,
-                                   'nw_v': lambda: self.nw_v,
-                                   'nnu_v': lambda: self.nnu_v } )
-    self.basic_quantity_setters.update( {'n_iw_f': self.set_n_iw_f,
-                                         'n_iw_b': self.set_n_iw_b,
-                                         'nw_v': self.set_nw_v,
-                                         'nnu_v': self.set_nnu_v } )
+    self.basic_quantities.extend( ['n_iw_f',
+                                   'n_iw_b',
+                                   'nw_v',
+                                   'nnu_v'] )
     
     self.nw_l = 2000
 
@@ -974,9 +919,9 @@ class trilex_data(GW_data):
       self.chi3tilde_imp_wnu[A] = numpy.zeros((self.nw_v, self.nnu_v),dtype=numpy.complex_)
       self.Lambda_imp_wnu[A] = numpy.zeros((self.nw_v, self.nnu_v),dtype=numpy.complex_)
 
-    self.three_leg_quantities.update( {'chi3_imp_wnu': lambda: self.chi3_imp_wnu,
-                                       'chi3tilde_imp_wnu': lambda: self.chi3tilde_imp_wnu,
-                                       'Lambda_imp_wnu': lambda: self.Lambda_imp_wnu} )
+    self.three_leg_quantities.extend( ['chi3_imp_wnu',
+                                       'chi3tilde_imp_wnu',
+                                       'Lambda_imp_wnu'] )
 
     self.get_Sigmakw = partial(self.get_Sigmakw, Lambda=self.Lambda_wrapper)
     self.get_Pqnu = partial(self.get_Pqnu, Lambda=self.Lambda_wrapper)
@@ -1061,7 +1006,7 @@ class trilex_data(GW_data):
     elif wi_v>=self.nw_v:
       if fit_Lambda_tail:
         tail = get_tail_from_numpy_array(Lambda_imp_wnu[A][:,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True) #here we fit only the positive part
-        result=  tail[0]\ 
+        result=  tail[0]\
                + tail[2]/((1j*self.w_from_wi_v(wi_v))**2.0)
       else:
         result = self.Lambda_imp_wnu[A][self.nw_v-1,nui_v].real
@@ -1080,25 +1025,25 @@ class trilex_data(GW_data):
     w_vs_new = [ mats_freq.fermionic(wi_v-nw_v_new/2, beta_new) for wi_v in range(nw_v_new) ]
     nu_vs_new = [ mats_freq.bosonic(nui_v, beta_new) for nui_v in range(nnu_v_new) ]
     for A in self.bosonic_struct.keys():
-      for key in self.three_leg_quantities.keys():
+      for key in self.three_leg_quantities:
          g = numpy.zeros((nw_v_new,self.nnu))
          for nui_v in range(self.nnu_v):
-           tail_pos = get_tail_from_numpy_array(three_leg_quantities[key]()[A][:,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True)
-           tail_neg = get_tail_from_numpy_array(three_leg_quantities[key]()[A][::-1,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True) 
+           tail_pos = get_tail_from_numpy_array(vars(self)[key][A][:,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True)
+           tail_neg = get_tail_from_numpy_array(vars(self)[key][A][::-1,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True) 
            #reversed_array to get the negative part which is different at finite bosonic freq.
-           wrapper = lambda iw:   tail_pos[0]\ 
+           wrapper = lambda iw:   tail_pos[0]\
                                 + tail_pos[2]/(iw**2.0)\
                                 if iw.imag>0 else\
-                                tail_neg[0]\ 
+                                tail_neg[0]\
                                 + tail_neg[2]/(iw**2.0)
-           change_temperature(three_leg_quantities[key]()[A][:,nui], g[:,nui], self.w_vs, w_vs_new, Q_old_wrapper=wrapper)
+           change_temperature(vars(self)[key][A][:,nui], g[:,nui], self.w_vs, w_vs_new, Q_old_wrapper=wrapper)
          g2 = numpy.zeros((nw_v_new, nnu_v_new))
          for wi_v in range(nw_v_new):
            tail = get_tail_from_numpy_array(g[wi_v,:], self.beta, 'Boson', self.n_iw_b, positive_only=True)
-           wrapper = lambda iw:   tail[0]\ 
-                                + tail[2]/(iw**2.0)           
+           wrapper = lambda iw:   tail[0]\
+                                + tail[2]/(iw**2.0)
            change_temperature(g[:,nui], g2[:,nui], self.nu_vs, nu_vs_new, Q_old_wrapper=wrapper)
-         three_leg_quantities[key]()[A] = copy.deepcopy(g2) 
+         vars(self)[key][A] = copy.deepcopy(g2) 
     self.w_vs = w_vs_new
     self.nu_vs = nu_vs_new  
     self.n_iw_f = n_iw_f_new
