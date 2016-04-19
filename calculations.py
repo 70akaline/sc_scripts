@@ -566,11 +566,9 @@ def pm_hubbard_GW_calculation( T, mutildes=[0.0],
     else:
       preset = GW_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct)
 
-    preset.cautionary.get_safe_values(dt.Jq, dt.bosonic_struct, n_q, n_q)
     if mpi.is_master_node():
       print "U = ",U," alpha= ",alpha, "Uch= ",Uch," Usp=",Usp," mutilde= ",mutilde
-      print "cautionary safe values: ",preset.cautionary.safe_value  
-    
+      #print "cautionary safe values: ",preset.cautionary.safe_value    
 
     if trilex:
       n_w_f=dt.n_iw_f

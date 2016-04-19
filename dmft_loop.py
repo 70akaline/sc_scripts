@@ -49,7 +49,8 @@ class dmft_loop:
 
   def run(self, data, 
                 n_loops_max=100, n_loops_min=5, 
-                print_non_local=1, print_three_leg=1): #1 every iteration, 2 every second, -2 never (except for final)
+                print_non_local=1, print_three_leg=1,
+                skip_self_energy_on_first_iteration=False ): #1 every iteration, 2 every second, -2 never (except for final)
     for mixer in self.mixers:
       mixer.get_initial()
     for conv in self.convergers:
@@ -65,8 +66,9 @@ class dmft_loop:
     for loop_index in range(n_loops_max):
       if mpi.is_master_node():
         print "---------------------------- loop_index: ",loop_index,"/",n_loops_max,"---------------------------------"
-
-      self.selfenergy(data=data)
+      
+      if loop_index!=0 or not skip_self_energy_on_first_iteration: 
+        self.selfenergy(data=data)
 
       if not (self.cautionary is None):
         data.err = self.cautionary.check_and_fix(data)        
@@ -94,6 +96,7 @@ class dmft_loop:
           mixer.mix(loop_index)
 
       if mpi.is_master_node():
+        data.dump_errors(suffix='-%s'%loop_index)
         data.dump_scalar(suffix='-%s'%loop_index)
         data.dump_local(suffix='-%s'%loop_index)
         if (loop_index + 1) % print_three_leg == 0: data.dump_three_leg(suffix='-%s'%loop_index)

@@ -80,12 +80,13 @@ class edmft: #deals with bosonic quantities, edmft style
 
   class cautionary: #makes sure divergence in propagators is avoided. safe margin needs to be provided
     def __init__(self, ms0=0.05, ccpower=2.0, ccrelax=1):
-      self.safe_value = {}
       self.ms0 = ms0
       self.ccpower = ccpower
       self.ccrelax = ccrelax
 
-    def get_safe_values(self, Jq, bosonic_struct, nqx, nqy):  #assumes P is negative
+    @staticmethod
+    def get_safe_values(Jq, bosonic_struct, nqx, nqy):  #assumes P is negative
+      safe_values = {}
       for A in bosonic_struct.keys():
         min_value = 1000.0
         for qxi in range(nqx):
@@ -93,25 +94,31 @@ class edmft: #deals with bosonic quantities, edmft style
             if Jq[A][qxi,qyi]<min_value:
               min_value = Jq[A][qxi,qyi]
         if min_value == 0.0:
-          self.safe_value[A] = -float('inf')
+          safe_values[A] = -float('inf')
         else:
-          self.safe_value[A] = 1.0/min_value
-
+          safe_values[A] = 1.0/min_value
+      return safe_values
+ 
     def reset(self):
       self.clip_counter = 0
 
-    def check_and_fix(self, data):
+    def check_and_fix(self, data, finalize = True):
+      safe_values = self.get_safe_values(data.Jq, data.bosonic_struct, data.n_q, data.n_q)
+ 
       #operates directly on data.P_loc_iw as this is the one that will be used in chiqnu calculation
       clipped = False
   
       prefactor = 1.0 - self.ms0 / (self.clip_counter**self.ccpower + 1.0)
       for A in data.bosonic_struct.keys():
         for i in range(data.nnu):
-          if (data.P_loc_iw[A].data[i,0,0].real < self.safe_value[A]) and (self.safe_value[A]<0.0):      
-            data.P_loc_iw[A].data[i,0,0] = prefactor*self.safe_value[A] + 1j*data.P_loc_iw[A].data[i,0,0].imag
+          if (data.P_loc_iw[A].data[i,0,0].real > 0):      
+            data.P_loc_iw[A].data[i,0,0] = 0.0
+            clipped = True        
+          if (data.P_loc_iw[A].data[i,0,0].real < safe_values[A]) and (safe_values[A]<0.0):      
+            data.P_loc_iw[A].data[i,0,0] = prefactor*safe_values[A] + 1j*data.P_loc_iw[A].data[i,0,0].imag
             clipped = True        
         
-      if clipped: 
+      if clipped and finalize: 
         self.clip_counter += 1 
       else: 
         self.clip_counter = self.clip_counter/self.ccrelax 
@@ -184,17 +191,14 @@ class GW:
   class cautionary(edmft.cautionary): #makes sure divergence in propagators is avoided. safe margin needs to be provided
     def check_and_fix(self, data):
       #operates directly on data.P_loc_iw as this is the one that will be used in chiqnu calculation
-      clipped = False
+      clipped = edmft.cautionary.check_and_fix(self, data, finalize=False)
       prefactor = 1.0 - self.ms0 / (self.clip_counter**self.ccpower + 1.0)
       for A in data.bosonic_struct.keys():
         for i in range(data.nnu):
-          if (data.P_loc_iw[A].data[i,0,0].real > 0):      
-            data.P_loc_iw[A].data[i,0,0] = 0.0
           for qxi in range(data.n_q):
             for qyi in range(data.n_q):
-              if  (data.Pqnu[A][i,qxi,qyi].real < data.Jq[A][qxi,qyi]) and (data.Jq[A][qxi,qyi]<0.0) : #here we assume P is negative
-                #print "CLIPPING: P[",A,"]: ", data.Pqnu[A][i,qxi,qyi].real,"safe_value: ", self.safe_value[A]
-                data.Pqnu[A][i,qxi,qyi] = prefactor*data.Jq[A][qxi,qyi] + 1j*data.Pqnu[A][i,qxi,qyi].imag
+              if  ( data.Pqnu[A][i,qxi,qyi].real < (data.Jq[A][qxi,qyi])**(-1.0) ) and (data.Jq[A][qxi,qyi]<0.0) : #here we assume P is negative
+                data.Pqnu[A][i,qxi,qyi] = prefactor*(data.Jq[A][qxi,qyi])**(-1.0) + 1j*data.Pqnu[A][i,qxi,qyi].imag
                 clipped = True        
               if  (data.Pqnu[A][i,qxi,qyi].real > 0.0): #here we assume P is negative
                 #print "CLIPPING: P[",A,"]: ", data.Pqnu[A][i,qxi,qyi].real,"safe_value: ", self.safe_value[A]
@@ -458,6 +462,62 @@ class trilex_hubbard_pm:
   @staticmethod 
   def after_it_is_done(data):
     data.get_chiqnu_from_func(func=dict.fromkeys(data.bosonic_struct.keys(),dyson.scalar.chi_from_P_and_J) )
-    data.get_Sigma_test()
-    data.get_P_test()
-    data.dump_test(suffix='-final') 
+    #data.get_Sigma_test()
+    #data.get_P_test()
+    #data.dump_test(suffix='-final') 
+
+
+#--------------------supercond hubbard model---------------------------------------#
+
+class supercond_hubbard:
+  def __init__(self): 
+    self.cautionary = GW.cautionary()    
+
+  @staticmethod 
+  def selfenergy(data):
+    data.get_Sigma_loc_from_local_bubble()
+    data.get_P_loc_from_local_bubble()
+    data.get_Sigmakw()
+    data.get_Xkw()
+    data.get_Pqnu()
+
+  @staticmethod 
+  def lattice(data):
+    data.get_Gkw_direct() #gets Gkw from w, mu, epsilon and Sigma
+    data.get_Wqnu_from_func(func =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J)) #gets Wqnu from P and J 
+
+    data.get_G_loc() #gets G_loc from Gkw
+    data.get_W_loc() #gets W_loc from Wqnu
+
+    data.get_Gtildekw() #gets Gkw-G_loc
+    data.get_Wtildeqnu() #gets Wqnu-W_loc, 
+    
+  @staticmethod 
+  def pre_impurity(data):
+    pass
+
+  @staticmethod 
+  def post_impurity(data):
+    pass
+
+  @staticmethod 
+  def after_it_is_done(data):
+    data.get_chiqnu_from_func(func=dict.fromkeys(data.bosonic_struct.keys(),dyson.scalar.chi_from_P_and_J) )
+
+#--------------------supercond trilex hubbard model---------------------------------------#
+
+class supercond_trilex_hubbard:
+  def __init__(self, mutilde, U, alpha, bosonic_struct): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
+    self.pre_impurity = partial(GW_hubbard_pm.pre_impurity, mutilde=mutilde, U=U, alpha=alpha)
+    self.lattice = supercond_hubbard.lattice()
+    self.cautionary = GW.cautionary()    
+    self.post_impurity = partial(trilex_hubbard_pm.post_impurity, mutilde=mutilde, U=U )
+    self.after_it_is_done = trilex_hubbard_pm.after_it_is_done  
+
+  @staticmethod 
+  def selfenergy(data):
+    dmft.selfenergy(data)
+    edmft.selfenergy(data)
+    data.get_Sigmakw()
+    data.get_Xkw()
+    data.get_Pqnu()

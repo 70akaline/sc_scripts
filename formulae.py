@@ -88,6 +88,31 @@ class dyson:
     def chi_from_P_and_J(P, J):
       if P == 0: return 0.0
       return -P.conjugate()**(-1.0)/(abs(P)**(-2.0) - abs(J)**2.0)
+
+  class superconducting:
+    @staticmethod
+    def G_from_Sigma_G0_and_X(Sigma, G0, X):      
+      Ginv = G0**(-1.0)-Sigma
+      if X==0.0: return Ginv**(-1.0)
+      return (Ginv).conjugate()/(abs(Ginv)**(2.0) + abs(X)**2.0)
+
+    @staticmethod
+    def G_from_w_mu_epsilon_Sigma_and_X(w, mu, epsilon, Sigma, X):      
+      Ginv = w+mu-epsilon-Sigma
+      if X==0.0: return Ginv**(-1.0)
+      return (Ginv).conjugate()/(abs(Ginv)**(2.0) + abs(X)**2.0)
+
+    @staticmethod
+    def F_from_w_mu_epsilon_Sigma_and_X(w, mu, epsilon, Sigma, X):      
+      if X==0.0: return 0.0
+      Ginv = w+mu-epsilon-Sigma
+      return -X/(abs(Ginv)**(2.0) + abs(X)**2.0)
+
+    @staticmethod
+    def F_from_Sigma_G0_and_X(Sigma, G0, X):      
+      if X==0.0: return 0.0
+      Ginv = G0**(-1.0)-Sigma
+      return -X/(abs(Ginv)**(2.0) + abs(X)**2.0)
   
 #--------------------------------------------------------------------------------------#
 class three_leg_related:
@@ -180,13 +205,13 @@ class bubble:
 
     @staticmethod
     def local    (  beta,
-                    nw1, nw2, wi1_list = [],
+                    nw1, nw2, wi1_list = [], wi2_list = [],
                     G1 = lambda wi: 0.0,   G2 = lambda wi: 0.0,  Lambda = lambda wi1, wi2: 1.0, 
                     freq_sum = lambda wi1, wi2: wi1 + wi2 ): 
       res = numpy.zeros((nw1), dtype=numpy.complex_)      
       for wi1 in (range(nw1) if wi1_list==[] else wi1_list):      
         if wi1 % mpi.size != mpi.rank: continue       
-        for wi2 in range(nw2):
+        for wi2 in  (range(nw2) if wi2_list==[] else wi2_list):
           wi12 = freq_sum(wi1,wi2) 
           res[wi1] += Lambda(wi1, wi2) * G1(wi12) * G2(wi2)
       res[:] = mpi.all_reduce(0, res, 0)       
@@ -214,15 +239,18 @@ class bubble:
     def P(     fermionic_struct, bosonic_struct, 
                P, G, Lambda, 
                func, 
-               su2_symmetry):
+               su2_symmetry,
+               G2 = None):
+      if G2 is None: G2 = G
       for A in bosonic_struct.keys():     
         P[A].fill(0.0)
         for U in fermionic_struct.keys():
           if su2_symmetry and (U!='up'): continue
           for V in fermionic_struct.keys():            
             if (U!=V and A!='+-')or((U==V)and(A=='+-')): continue
-            P[A] += func( G1 = partial(G, key=V),   G2 = partial(G, key=U),  Lambda = lambda wi1, wi2: Lambda(A, wi2, wi1) )
+            P[A] += func( G1 = partial(G, key=V),   G2 = partial(G2, key=U),  Lambda = lambda wi1, wi2: Lambda(A, wi2, wi1) )
         if su2_symmetry: P[A]*=2.0
+
 
 #---------- susceptibilities from nn_iw (<SzSz> and <S0S0>)
 def get_chi_iw(chi_iw, nn_iw, bosonic_struct, fermionic_struct, coupling):
@@ -234,7 +262,6 @@ def get_chi_iw(chi_iw, nn_iw, bosonic_struct, fermionic_struct, coupling):
             for u in fermionic_struct[U]:
               for v in fermionic_struct[V]:
                 chi_iw[A][a,b] += coupling[U+"|"+A][u,u,a]*coupling[V+"|"+A][v,v,b]*nn_iw[U+"|"+V][u,v]
-
 #---------- initial guesses for P
 
 def safe_and_stupid_scalar_P_imp(safe_value, P_imp):

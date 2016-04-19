@@ -264,8 +264,8 @@ class basic_data:
     self.Sz = 0
 
     #---------quantity dictionaries
-
-    self.parameters = ['err', 'n_iw', 'nnu', 'nw', 'beta','fermionic_struct', 'bosonic_struct' ]
+    self.errors = ['err']
+    self.parameters = ['n_iw', 'nnu', 'nw', 'beta','fermionic_struct', 'bosonic_struct' ]
     self.scalar_quantities = ['mus', 'ns', 'Sz']
     self.non_interacting_quantities = []
     self.local_quantities = []
@@ -287,7 +287,7 @@ class basic_data:
       archive_name = self.archive_name    
     A = HDFArchive(archive_name)
     A['mus%s'%suffix] = self.mus
-    A['ns%s'%suffix] = self.ns #these have a little bit special status. I put them here for now to be printed out in each iteration
+    A['ns%s'%suffix] = self.ns #these have a little bit special status. I put them here for now, to be printed out in each iteration
 
     A['G0_iw%s'%suffix] = self.solver.G0_iw
     A['D0_iw%s'%suffix] = self.solver.D0_iw
@@ -301,6 +301,9 @@ class basic_data:
     for key in quantities:
       A['%s%s'%(key,suffix)] = vars(self)[key]
     del A
+
+  def dump_errors(self, archive_name=None, suffix=''):
+    self.dump_general(self.errors, archive_name, suffix)
 
   def dump_parameters(self, archive_name=None, suffix=''):
     self.dump_general(self.parameters, archive_name, suffix)
@@ -889,7 +892,7 @@ class GW_data(edmft_data):
                   func = partial(bubble.wsum.local, 
                                     beta=self.beta,
                                     nw1 = self.nw, nw2 = self.nnu,  
-                                    wi1_list = wi_list,                             
+                                    wi1_list = wi_list, wi2_list = range(-self.m_to_nui(-1000),self.m_to_nui(1001)),                            
                                     freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2) ),
                   su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling )
 
@@ -905,7 +908,7 @@ class GW_data(edmft_data):
                   func = partial(bubble.wsum.local, 
                                     beta=self.beta,
                                     nw1 = self.nnu, nw2 = self.nw,  
-                                    wi1_list = nui_list,                             
+                                    wi1_list = nui_list, wi2_list = range(-self.n_to_wi(-1000),self.n_to_wi(1000)),                            
                                     freq_sum = lambda wi1, wi2: wi2 + self.m_from_nui(wi1) ),
                   su2_symmetry=su2_symmetry )
 
@@ -1064,8 +1067,8 @@ class trilex_data(GW_data):
          #print "key: ", key, " A: ", A
          g = numpy.zeros((nw_v_new,self.nnu))
          for nui_v in range(self.nnu_v):
-           tail_pos = mats_freq.get_tail_from_numpy_array(vars(self)[key][A][:,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True)
-           tail_neg = mats_freq.get_tail_from_numpy_array(vars(self)[key][A][::-1,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True) 
+#           tail_pos = mats_freq.get_tail_from_numpy_array(vars(self)[key][A][:,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True)
+#           tail_neg = mats_freq.get_tail_from_numpy_array(vars(self)[key][A][::-1,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True) 
            #reversed_array to get the negative part which is different at finite bosonic freq.
 #           wrapper = lambda iw:   tail_pos[0]\
 #                                #+ tail_pos[2]/(iw**2.0)\
@@ -1098,3 +1101,115 @@ class trilex_data(GW_data):
     A['Sigma_imp_iw_test%s'%suffix] = self.Sigma_imp_iw_test
     A['P_imp_iw_test%s'%suffix] = self.P_imp_iw_test
     del A
+
+#--------------------------------- supercond data -------------------------------#
+
+class supercond_data(GW_data):
+  def __init__(self, n_iw = 100, 
+                     n_k = 12, 
+                     n_q = 12,
+                     beta = 10.0, 
+                     solver = None,
+                     bosonic_struct = {'0': [0], '1': [0]},
+                     fermionic_struct = {'up': [0], 'down': [0]},
+                     archive_name="dmft.out.h5"):
+    GW_data.__init__(self, n_iw, n_k, n_q, beta, solver, bosonic_struct, fermionic_struct, archive_name)
+    supercond_data.promote(self)
+
+  def promote(self):  
+    self.hsck = {} #superconducting field
+    self.Xkw = {} #anomalous part of lattice self-energy
+    self.Fkw = {} #anomalous part of lattice Gf
+
+    for U in self.fermionic_struct.keys():
+      self.hsck[U] = numpy.zeros((self.n_k, self.n_k), dtype=numpy.complex_)
+      self.Xkw[U] = numpy.zeros((self.nw, self.n_k, self.n_k), dtype=numpy.complex_)
+      self.Fkw[U] = numpy.zeros((self.nw, self.n_k,self.n_k), dtype=numpy.complex_)
+
+    self.non_interacting_quantities.extend( ['hsck'] )
+    new_fermionic = ['Xkw','Fkw']
+    self.non_local_fermionic_gfs.extend( new_fermionic )
+
+    self.Qqnu = {} #anomalous contribution to polarization P
+    for A in self.bosonic_struct.keys():
+      self.Qqnu[A] = numpy.zeros((self.nnu, self.n_q,self.n_q), dtype=numpy.complex_)
+
+    new_bosonic = ['Qqnu']
+    self.non_local_bosonic_gfs.extend( new_bosonic )
+    self.non_local_quantities.extend( new_fermionic + new_bosonic )
+
+  def get_Gkw(self):
+    self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: dyson.scalar.get_G_from_Sigma_G0_and_X(self.Sigmakw[U][i,kx,ky], self.G0kw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
+
+  def get_Gkw_direct(self):
+    self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: dyson.scalar.get_G_from_w_mu_epsilon_Sigma_and_X(self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
+
+  def get_G_loc_from_func_direct(self):
+    self.sum_k_dependent(self.G_loc_iw, lambda U, i, kx, ky: dyson.scalar.get_G_from_w_mu_epsilon_Sigma_and_X(self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
+
+  def get_Fkw(self):
+    self.get_k_dependent(self.Fkw, lambda U,i,kx,ky: dyson.scalar.get_F_from_Sigma_G0_and_X(self.Sigmakw[U][i,kx,ky], self.G0kw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
+
+  def get_Fkw_direct(self):
+    self.get_k_dependent(self.Fkw, lambda U,i,kx,ky: dyson.scalar.get_F_from_w_mu_epsilon_Sigma_and_X(self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
+
+  def get_Xkw(self, simple = False, use_IBZ_symmetry = True, ising_decoupling=False, su2_symmetry=True, wi_list = [],  Lambda = lambda A, wi, nui: 1.0):
+    assert self.n_k == self.n_q, "ERROR: for bubble calcuation it is necessary that bosonic and fermionic quantities have the same discretization of IBZ"
+    bubble.full.Sigma\
+                ( self.fermionic_struct, self.bosonic_struct, 
+                  self.Xkw, 
+                  G = partial(self.lattice_fermionic_gf_wrapper, g=numpy.conjugate(self.Fkw)), 
+                  W = partial(self.lattice_bosonic_gf_wrapper, g=self.Wtildeqnu), 
+                  Lambda = Lambda, 
+                  func = partial( bubble.wsum.non_local, 
+                                    beta=self.beta,
+                                    nw1 = self.nw, nw2 = self.nnu,  
+                                    nk=self.n_k, wi1_list = wi_list,                             
+                                    freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2), 
+                                    func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_IBZ_symmetry)\
+                                ),
+                  su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling )
+    for U in self.fermionic_struct.keys():
+      for wi in (range(self.nw) if wi_list==[] else wi_list):
+        function_applicators.subtract_loc_from_k_dependent(self.Xkw[U][wi,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
+        self.Xkw[U][wi,:,:] += hsck[:,:]
+
+  def get_Pqnu(self, simple = False, use_IBZ_symmetry = True, ising_decoupling=False, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
+    GW.get_Pqnu(self, simple, use_IBZ_symmetry, ising_decoupling, su2_symmetry, nui_list, Lambda) 
+    bubble.full.P\
+                ( self.fermionic_struct, self.bosonic_struct, 
+                  P = self.Qqnu, 
+                  G = partial(self.lattice_fermionic_gf_wrapper, g=numpy.conjugate(self.Fkw)), 
+                  G2 = partial(self.lattice_fermionic_gf_wrapper, g=self.Fkw),
+                  Lambda = Lambda, 
+                  func = partial( bubble.wsum.non_local, 
+                                    beta=self.beta,
+                                    nw1 = self.nnu, nw2 = self.nw,  
+                                    nk=self.n_k, wi1_list = nui_list,                             
+                                    freq_sum = lambda wi1, wi2: wi2 + self.m_from_nui(wi1), 
+                                    func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_IBZ_symmetry)\
+                                ),
+                  su2_symmetry=su2_symmetry )
+    for A in self.bosonic_struct.keys():
+      for nui in (range(self.nnu) if nui_list==[] else nui_list):
+        function_applicators.subtract_loc_from_k_dependent(self.Qqnu[A][nui,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
+      self.Pqnu[A][:,:,:] += self.Qqnu[A][:,:,:]
+
+
+#--------------------------------- supercond trilex data -------------------------------#
+
+class supercond_trilex_data(supercond_data, trilex_data):
+  def __init__(self, n_iw = 100,
+                     n_iw_f = 20, n_iw_b = 20,  
+                     n_k = 12, 
+                     n_q = 12,
+                     beta = 10.0, 
+                     solver = None,
+                     bosonic_struct = {'z': [0], '+-': [0]},
+                     fermionic_struct = {'up': [0], 'down': [0]},
+                     archive_name="dmft.out.h5"):
+    GW_data.__init__(self, n_iw, n_k, n_q, beta, solver, bosonic_struct, fermionic_struct, archive_name)
+    supercond_data.promote(self)    
+    trilex_data.promote(self, n_iw_f, n_iw_b)   #at this point get_Pqnu is partially evaluated with Lambda_wrapper for lambda, but is already redefined by supercond
+
+    self.get_Xkw = partial(self.get_Xkw, Lambda = self.Lambda_wrapper)
