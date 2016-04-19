@@ -39,9 +39,9 @@ for alpha in [0.45]:
                          mutildes=[mutilde], 
                          ts=[0.25], t_dispersion = epsilonk_square,
                          Us = [U], alpha = alpha, #2.0/3.0,
-                         n_loops_min = 5, n_loops_max=15, rules = [[0, 0.5], [4, 0.2], [10,0.0]],
+                         n_loops_min = 1, n_loops_max=2, rules = [[0, 0.5], [4, 0.2], [10,0.0]],
                          trilex=True,
-                         use_cthyb=True, n_cycles=400000, max_time=30*60,
+                         use_cthyb=True, n_cycles=20000, max_time=30*60,
                          initial_guess_archive_name = '', suffix='')
 
 

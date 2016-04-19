@@ -460,5 +460,4 @@ class trilex_hubbard_pm:
     data.get_chiqnu_from_func(func=dict.fromkeys(data.bosonic_struct.keys(),dyson.scalar.chi_from_P_and_J) )
     data.get_Sigma_test()
     data.get_P_test()
-    if mpi.is_master_node():
-      data.dump_all(suffix='-final')
+    data.dump_test(suffix='-final') 

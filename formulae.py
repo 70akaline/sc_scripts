@@ -183,7 +183,7 @@ class bubble:
                     nw1, nw2, wi1_list = [],
                     G1 = lambda wi: 0.0,   G2 = lambda wi: 0.0,  Lambda = lambda wi1, wi2: 1.0, 
                     freq_sum = lambda wi1, wi2: wi1 + wi2 ): 
-      res = numpy.zeros((nw1,nk,nk), dtype=numpy.complex_)      
+      res = numpy.zeros((nw1), dtype=numpy.complex_)      
       for wi1 in (range(nw1) if wi1_list==[] else wi1_list):      
         if wi1 % mpi.size != mpi.rank: continue       
         for wi2 in range(nw2):
