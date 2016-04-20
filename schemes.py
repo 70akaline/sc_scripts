@@ -339,10 +339,10 @@ class edmft_tUVJ_pm:
 
     if mutilde==0.0: #this is correct only at PH symmetry!!!! be careful add a flag or something 
       for i in range(data.nw):
-        data.Sigma_imp_iw['up'].data[i,0,0] =  U/2.0 + data.Sigma_imp_iw['up'].data[i,0,0].imag*1j #replace real part by the hartree-shift
+        data.Sigma_loc_iw['up'].data[i,0,0] =  U/2.0 + data.Sigma_loc_iw['up'].data[i,0,0].imag*1j #replace real part by the hartree-shift
         if '0' in data.bosonic_struct.keys():
-          data.Sigma_imp_iw['up'].data[i,0,0] += data.Uweiss_dyn_iw['0'].data[data.nnu/2,0,0]
-      data.Sigma_imp_iw['down'] << data.Sigma_imp_iw['up'] 
+          data.Sigma_loc_iw['up'].data[i,0,0] += data.Uweiss_dyn_iw['0'].data[data.nnu/2,0,0]
+      data.Sigma_loc_iw['down'] << data.Sigma_loc_iw['up'] 
 
     edmft.polarization(data)
 
