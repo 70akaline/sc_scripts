@@ -440,7 +440,7 @@ from formulae import dyson
 def pm_hubbard_GW_calculation( T, mutildes=[0.0], 
                             ts=[0.25], t_dispersion = epsilonk_square,
                             Us = [1.0], alpha=2.0/3.0, 
-                            n_ks = [6, 12, 24, 36, 64],
+                            n_ks = [6, 36, 64],
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
                             trilex = False,
                             use_cthyb=True, n_cycles=100000, max_time=10*60,

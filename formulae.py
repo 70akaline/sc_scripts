@@ -222,7 +222,7 @@ class bubble:
     def Sigma( fermionic_struct, bosonic_struct, 
                Sigma, G, W, Lambda, 
                func,
-               su2_symmetry, ising_decoupling ):
+               su2_symmetry, ising_decoupling, p = {'0': 1.0, '1': 1.0} ):
       for U in fermionic_struct.keys():
         if su2_symmetry and U!='up': continue      
         Sigma[U].fill(0.0) 
@@ -231,7 +231,7 @@ class bubble:
             if (U!=V and A!='+-')or((U==V)and(A=='+-')): continue
             m = -1.0
             if (A=='1' or A=='z') and (not ising_decoupling): m*=3.0
-            Sigma[U] += m * func( G1 = partial(G, key=V),   G2 = partial(W, key=A),  Lambda = lambda wi1, wi2: Lambda(A, wi1, wi2)  )
+            Sigma[U] += p[A] * m * func( G1 = partial(G, key=V),   G2 = partial(W, key=A),  Lambda = lambda wi1, wi2: Lambda(A, wi1, wi2)  )
       if su2_symmetry: 
         Sigma['down'] = copy.deepcopy(Sigma['up'])
 
@@ -240,7 +240,7 @@ class bubble:
                P, G, Lambda, 
                func, 
                su2_symmetry,
-               G2 = None):
+               G2 = None,  p = {'0': 1.0, '1': 1.0} ):
       if G2 is None: G2 = G
       for A in bosonic_struct.keys():     
         P[A].fill(0.0)
@@ -248,9 +248,8 @@ class bubble:
           if su2_symmetry and (U!='up'): continue
           for V in fermionic_struct.keys():            
             if (U!=V and A!='+-')or((U==V)and(A=='+-')): continue
-            P[A] += func( G1 = partial(G, key=V),   G2 = partial(G2, key=U),  Lambda = lambda wi1, wi2: Lambda(A, wi2, wi1) )
+            P[A] +=  p[A] * func( G1 = partial(G, key=V),   G2 = partial(G2, key=U),  Lambda = lambda wi1, wi2: Lambda(A, wi2, wi1) )
         if su2_symmetry: P[A]*=2.0
-
 
 #---------- susceptibilities from nn_iw (<SzSz> and <S0S0>)
 def get_chi_iw(chi_iw, nn_iw, bosonic_struct, fermionic_struct, coupling):

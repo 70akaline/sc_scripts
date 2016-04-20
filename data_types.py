@@ -323,9 +323,13 @@ class basic_data:
   def dump_three_leg(self, archive_name=None, suffix=''):
     self.dump_general(self.three_leg_quantities, archive_name, suffix)
     
-  def dump_all(self, archive_name=None, suffix=''):    
+  def dump_all(self, archive_name=None, suffix=''):   
+    if archive_name is None:
+      archive_name = self.archive_name  #this part because of dump_solver which does not know about data
     self.dump_solver(self.solver, archive_name, suffix)
-    self.dump_basic(archive_name, suffix)
+    self.dump_errors(archive_name, suffix)
+    #self.dump_parameters(archive_name, suffix)
+    self.dump_scalar(archive_name, suffix)
     self.dump_local(archive_name, suffix)
     self.dump_non_interacting(archive_name, suffix)
     self.dump_non_local(archive_name, suffix)
@@ -1168,7 +1172,7 @@ class supercond_data(GW_data):
                                     freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2), 
                                     func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_IBZ_symmetry)\
                                 ),
-                  su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling )
+                  su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling, p = {'0': 1.0, '1': -1.0} )
     for U in self.fermionic_struct.keys():
       for wi in (range(self.nw) if wi_list==[] else wi_list):
         function_applicators.subtract_loc_from_k_dependent(self.Xkw[U][wi,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
@@ -1189,7 +1193,7 @@ class supercond_data(GW_data):
                                     freq_sum = lambda wi1, wi2: wi2 + self.m_from_nui(wi1), 
                                     func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_IBZ_symmetry)\
                                 ),
-                  su2_symmetry=su2_symmetry )
+                  su2_symmetry=su2_symmetry, p = {'0': 1.0, '1': -1.0} )
     for A in self.bosonic_struct.keys():
       for nui in (range(self.nnu) if nui_list==[] else nui_list):
         function_applicators.subtract_loc_from_k_dependent(self.Qqnu[A][nui,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
