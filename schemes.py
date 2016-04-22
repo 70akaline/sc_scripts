@@ -477,7 +477,7 @@ class trilex_hubbard_pm:
 #--------------------supercond hubbard model---------------------------------------#
 
 class supercond_hubbard:
-  def __init__(self): 
+  def __init__(self):
     self.cautionary = GW.cautionary()    
 
   @staticmethod 
@@ -490,22 +490,23 @@ class supercond_hubbard:
 
   @staticmethod 
   def lattice(data):
-    data.get_Gkw_direct() #gets Gkw from w, mu, epsilon and Sigma
-    data.get_Wqnu_from_func(func =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J)) #gets Wqnu from P and J 
+    data.get_Gkw_direct() #gets Gkw from w, mu, epsilon and Sigma and X
+    data.get_Fkw_direct() #gets Fkw from w, mu, epsilon and Sigma and X
+    data.get_Wqnu_from_func(func =  dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.W_from_P_and_J)) #gets Wqnu from P and J 
 
     data.get_G_loc() #gets G_loc from Gkw
-    data.get_W_loc() #gets W_loc from Wqnu
+    data.get_W_loc() #gets W_loc from Wqnu, used in local bubbles
 
     data.get_Gtildekw() #gets Gkw-G_loc
-    data.get_Wtildeqnu() #gets Wqnu-W_loc, 
+    data.get_Wtildeqnu() #gets Wqnu-W_loc, those are used in non-local bubbles
     
   @staticmethod 
-  def pre_impurity(data):
+  def pre_impurity(data):    
     pass
 
   @staticmethod 
   def post_impurity(data):
-    pass
+    data.get_n_from_G_loc() #we need it away from half-filling to determine the hartree shift   
 
   @staticmethod 
   def after_it_is_done(data):
@@ -516,15 +517,15 @@ class supercond_hubbard:
 class supercond_trilex_hubbard:
   def __init__(self, mutilde, U, alpha, bosonic_struct): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
     self.pre_impurity = partial(GW_hubbard_pm.pre_impurity, mutilde=mutilde, U=U, alpha=alpha)
-    self.lattice = supercond_hubbard.lattice()
+    self.lattice = supercond_hubbard.lattice
     self.cautionary = GW.cautionary()    
-    self.post_impurity = partial(trilex_hubbard_pm.post_impurity, mutilde=mutilde, U=U )
+    self.post_impurity = trilex_hubbard_pm.post_impurity
     self.after_it_is_done = trilex_hubbard_pm.after_it_is_done  
 
   @staticmethod 
   def selfenergy(data):
     dmft.selfenergy(data)
-    edmft.selfenergy(data)
+    edmft.polarization(data)
     data.get_Sigmakw()
     data.get_Xkw()
     data.get_Pqnu()

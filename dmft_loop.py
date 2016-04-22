@@ -187,6 +187,7 @@ class converger:
       A = HDFArchive(self.archive_name)
       A[self.h5key] = self.diffs
       del A
+      print "converger: ",self.h5key," : ", self.diffs[-1]
 
     if self.diffs[-1]<self.accuracy:
       return True

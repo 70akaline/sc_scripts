@@ -25,6 +25,9 @@ def epsilonk_square(kx,ky,t):
 def Jq_square_AFM(qx, qy, J): #should not make any difference when summed over the brillouin zone
   return J*( 1.0 + cmath.exp(1j*qx) + cmath.exp(1j*qy) + cmath.exp(1j*(qx+qy)) )
 
+def X_dwave(kx, ky, X):
+  return X*(cos(kx)-cos(ky))
+
 #---------- k sums ---------------------------------------------------------------------#
 def analytic_k_sum(Pnu, J, N=2000): #works only for Jq_square
     if Pnu==0.0: return 0.0
@@ -212,9 +215,11 @@ class bubble:
       for wi1 in (range(nw1) if wi1_list==[] else wi1_list):      
         if wi1 % mpi.size != mpi.rank: continue       
         for wi2 in  (range(nw2) if wi2_list==[] else wi2_list):
+          #print "wi2: ", wi2
           wi12 = freq_sum(wi1,wi2) 
           res[wi1] += Lambda(wi1, wi2) * G1(wi12) * G2(wi2)
-      res[:] = mpi.all_reduce(0, res, 0)       
+      res[:] = mpi.all_reduce(0, res, 0)    
+      print "local bubble: res[nw1/2]: ",   res[nw1/2]
       return res/beta
 
   class full:
