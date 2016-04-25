@@ -475,10 +475,10 @@ class trilex_hubbard_pm:
 
 
 #--------------------supercond hubbard model---------------------------------------#
-
+from formulae import X_dwave
 class supercond_hubbard:
   def __init__(self):
-    self.cautionary = GW.cautionary()    
+    self.cautionary = self.cautionary()    
 
   @staticmethod 
   def selfenergy(data):
@@ -487,6 +487,40 @@ class supercond_hubbard:
     data.get_Sigmakw()
     data.get_Xkw()
     data.get_Pqnu()
+
+  class cautionary(GW.cautionary): #makes sure divergence in propagators is avoided. safe margin needs to be provided
+    def __init__(self, ms0=0.05, ccpower=2.0, ccrelax=1):
+      print "initializing supercond cautionary"
+      edmft.cautionary.__init__(self,ms0, ccpower, ccrelax)
+
+    def reset(self):
+      print "reseting supercond cautionary"
+      edmft.cautionary.reset(self)
+      self.it_counter = 0
+
+    def check_and_fix(self, data):
+      for U in data.fermionic_struct.keys():
+        for n in range(data.n_iw):
+          for kxi in range(data.n_k):
+            for kyi in range(data.n_k):            
+              symSig = 0.5 * (data.Sigmakw[U][data.n_to_wi(n), kxi, kyi]+numpy.conj(data.Sigmakw[U][data.n_to_wi(0)-1-n, kxi, kyi]))
+              data.Sigmakw[U][data.n_to_wi(n), kxi, kyi] = symSig
+              data.Sigmakw[U][data.n_to_wi(0)-1-n, kxi, kyi] = numpy.conj(symSig)
+          symSig = 0.5 * (data.Sigma_loc_iw[U].data[data.n_to_wi(n), 0, 0]+numpy.conj(data.Sigma_loc_iw[U].data[data.n_to_wi(0)-1-n, 0, 0]))
+          data.Sigma_loc_iw[U].data[data.n_to_wi(n), 0, 0] = symSig
+          data.Sigma_loc_iw[U].data[data.n_to_wi(0)-1-n, 0, 0] = numpy.conj(symSig)
+
+      if self.it_counter < 5:
+        for U in data.fermionic_struct.keys():
+          for wi in range(data.nw):
+            for kxi in range(data.n_k):
+              for kyi in range(data.n_k):            
+                 data.Xkw[U][wi, kxi, kyi] += X_dwave(data.ks[kxi],data.ks[kyi], 0.1)
+        
+        data.Xkw[U][wi, kxi, kyi] += X_dwave(data.ks[kxi],data.ks[kyi], 0.1)  
+      self.it_counter += 1 
+      return GW.cautionary.check_and_fix(self, data)
+
 
   @staticmethod 
   def lattice(data):

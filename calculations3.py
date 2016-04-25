@@ -32,7 +32,8 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             mutildes=[0.0, 0.2, 0.4, 0.6, 0.8], 
                             ts=[0.25], t_dispersion = epsilonk_square,
                             Us = [1.0,2.0,3.0,4.0], alpha=2.0/3.0, 
-                            n_ks = [24],
+                            n_ks = [24], 
+                            w_cutoff = 20.0,
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
                             trilex = False,
                             use_cthyb=True, n_cycles=100000, max_time=10*60,
@@ -49,7 +50,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
 
   beta = 1.0/Ts[0] 
   
-  n_iw = int(((20.0*beta)/math.pi-1.0)/2.0)
+  n_iw = int(((w_cutoff*beta)/math.pi-1.0)/2.0)
   if mpi.is_master_node():
     print "PM HUBBARD GW: n_iw: ",n_iw
   n_tau = int(n_iw*pi)
@@ -84,23 +85,16 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     dt.promote(dt.n_iw/2, dt.n_iw/2)
 
   #init convergence and cautionary measures
-  convergers = [ converger( monitored_quantity = dt.P_loc_iw,
-                            accuracy=1e-6, 
+  convergers = [ converger( monitored_quantity = lambda: dt.P_loc_iw,
+                            accuracy=1e-4, 
                             struct=bosonic_struct, 
                             archive_name=dt.archive_name,
                             h5key = 'diffs_P_loc' ),
-                 converger( monitored_quantity = dt.G_loc_iw,
-                            accuracy=1e-6, 
+                 converger( monitored_quantity = lambda: dt.G_loc_iw,
+                            accuracy=1e-4, 
                             struct=fermionic_struct, 
                             archive_name=dt.archive_name,
                             h5key = 'diffs_G_loc'     ) ]
-
-  mixers = [ mixer( mixed_quantity = dt.P_imp_iw,
-                    rules=rules,
-                    func=mixer.mix_gf ),
-             mixer( mixed_quantity = dt.Sigma_imp_iw,
-                    rules=rules,
-                    func=mixer.mix_gf)  ]
 
   err = 0
   #initial guess
@@ -125,11 +119,12 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       old_nk = nk
 
     if beta!=old_beta:
-      n_iw = int(((20.0*beta)/math.pi-1.0)/2.0)
+      n_iw = int(((w_cutoff*beta)/math.pi-1.0)/2.0)
       n_tau = int(n_iw*pi)
-      dt.change_beta(beta)
+      dt.change_beta(beta, n_iw)
 
-      dt.solver = Solver( beta = beta,
+      if trilex:
+        dt.solver = Solver( beta = beta,
                      gf_struct = fermionic_struct, 
                      n_tau_k = n_tau,
                      n_tau_g = 10000,
@@ -181,12 +176,19 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     else:
       impurity = lambda data: None
 
+    mixers = [ mixer( mixed_quantity = dt.P_imp_iw,
+                      rules=rules,
+                      func=mixer.mix_gf ),
+               mixer( mixed_quantity = dt.Sigma_imp_iw,
+                      rules=rules,
+                      func=mixer.mix_gf)  ]
+
     #init the dmft_loop 
     dmft = dmft_loop(  cautionary       = preset.cautionary, 
                        lattice          = preset.lattice,
                        pre_impurity     = preset.pre_impurity, 
                        impurity         = impurity, 
-                       post_impurity    = partial( preset.post_impurity ),
+                       post_impurity    = preset.post_impurity,
                        selfenergy       = preset.selfenergy, 
                        convergers       = convergers,
                        mixers           = mixers,

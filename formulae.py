@@ -213,9 +213,10 @@ class bubble:
                     freq_sum = lambda wi1, wi2: wi1 + wi2 ): 
       res = numpy.zeros((nw1), dtype=numpy.complex_)      
       for wi1 in (range(nw1) if wi1_list==[] else wi1_list):      
-        if wi1 % mpi.size != mpi.rank: continue       
-        for wi2 in  (range(nw2) if wi2_list==[] else wi2_list):
-          #print "wi2: ", wi2
+        if wi1 % mpi.size != mpi.rank: continue      
+        if wi2_list != []:
+          wi2_list_shifted = [wi2-wi1 for wi2 in wi2_list]
+        for wi2 in  (range(nw2) if wi2_list==[] else wi2_list_shifted):
           wi12 = freq_sum(wi1,wi2) 
           res[wi1] += Lambda(wi1, wi2) * G1(wi12) * G2(wi2)
       res[:] = mpi.all_reduce(0, res, 0)    

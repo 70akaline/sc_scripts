@@ -157,6 +157,7 @@ class mixer:
 
 class converger:
   def __init__(self, monitored_quantity, accuracy=3e-5, func=None, struct=None, archive_name=None, h5key='diffs'):
+    #monitored quantity needs to be a function returning an object in case the object is rewritten (changed address)
     self.mq = monitored_quantity
 
     self.accuracy = accuracy
@@ -172,7 +173,7 @@ class converger:
     self.diffs = []
 
   def get_initial(self):
-    self.mq_old = copy.deepcopy(self.mq)
+    self.mq_old = copy.deepcopy(self.mq())
 
   def check(self):
     if self.func is None:
@@ -199,8 +200,8 @@ class converger:
     for key in self.struct.keys(): 
       for a in self.struct[key]: 
         for b in self.struct[key]: 
-          for i in range(len(self.mq[key].data[:,a,b])):
-            diff = abs(self.mq[key].data[i,a,b] - self.mq_old[key].data[i,a,b])   
+          for i in range(len(self.mq()[key].data[:,a,b])):
+            diff = abs(self.mq()[key].data[i,a,b] - self.mq_old[key].data[i,a,b])   
             if diff>max_diff:
               max_diff=diff
     self.diffs.append(max_diff)         

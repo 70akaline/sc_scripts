@@ -57,7 +57,7 @@ class mats_freq:
     j_old = 0
     for i in range(len(ws_new)):     
       for j in range(j_old, len(ws_old)):
-        if ( (ws_old[j]>ws_new[i]) and (j==0) ) or ( (ws_old[j]<ws_new[i]) and (j==len(ws_old)-1) ):
+        if ( (ws_old[j]>ws_new[i]) and (j==0) ) or ( (ws_old[j]<=ws_new[i]) and (j==len(ws_old)-1) ):
           Q_new[i] = Q_old_wrapper(1j*ws_new[i])          
           j_old = j
           break          
@@ -907,7 +907,7 @@ class GW_data(edmft_data):
                   func = partial(bubble.wsum.local, 
                                     beta=self.beta,
                                     nw1 = self.nw, nw2 = self.nnu,  
-                                    wi1_list = wi_list, #wi2_list = range(-self.m_to_nui(-1000),self.m_to_nui(1001)),                            
+                                    wi1_list = wi_list, wi2_list = range(self.m_to_nui(-5000)+self.n_to_wi(0),self.m_to_nui(5000)+self.n_to_wi(0)),                            
                                     freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2) ),
                   su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling )
     if su2_symmetry: 
@@ -928,7 +928,7 @@ class GW_data(edmft_data):
                   func = partial(bubble.wsum.local, 
                                     beta=self.beta,
                                     nw1 = self.nnu, nw2 = self.nw,  
-                                    wi1_list = nui_list, #wi2_list = range(-self.n_to_wi(-1000),self.n_to_wi(1000)),                            
+                                    wi1_list = nui_list, wi2_list = range(self.n_to_wi(-5000)+self.n_to_wi(0),self.n_to_wi(5000)+self.n_to_wi(0)),                            
                                     freq_sum = lambda wi1, wi2: wi2 + self.m_from_nui(wi1) ),
                   su2_symmetry=su2_symmetry )
 

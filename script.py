@@ -5,70 +5,20 @@ from schemes import *
 from data_types import *
 from impurity_solvers import *
 
-try:
-  supercond_hubbard_calculation( Ts = [0.08,0.04,0.02,0.01,0.005], 
-                            mutildes=[0.0, 0.2, 0.4, 0.6, 0.8], 
+
+supercond_hubbard_calculation( Ts = [0.02, 0.01, 0.005,0.001], 
+                            mutildes=[0.0, 0.4, 0.8], 
                             ts=[0.25], t_dispersion = epsilonk_square,
                             Us = [1.0,2.0,3.0,4.0], alpha=0.5, 
                             n_ks = [24],
-                            n_loops_min = 5, n_loops_max=25, rules = [[0, 0.0]],
+                            w_cutoff = 20.0,
+                            n_loops_min = 5, n_loops_max=20, rules = [[0, 0.0]],
                             trilex = False,
                             use_cthyb=True, n_cycles=100000, max_time=10*60,
                             initial_guess_archive_name = '', suffix='')
-except:
-  print " broken!!!"
-
-try:
-  supercond_hubbard_calculation( Ts = [0.08,0.04,0.02,0.01,0.005], 
-                            mutildes=[0.0, 0.2, 0.4, 0.6, 0.8], 
-                            ts=[0.25], t_dispersion = epsilonk_square,
-                            Us = [1.0,2.0,3.0,4.0], alpha=2.0/3.0, 
-                            n_ks = [24],
-                            n_loops_min = 5, n_loops_max=25, rules = [[0, 0.0]],
-                            trilex = False,
-                            use_cthyb=True, n_cycles=100000, max_time=10*60,
-                            initial_guess_archive_name = '', suffix='')
-except:
-  print " broken!!!"
-
-
-try:
-  supercond_hubbard_calculation( Ts = [0.08,0.04,0.02,0.01,0.005], 
-                            mutildes=[0.0, 0.2, 0.4, 0.6, 0.8], 
-                            ts=[0.25], t_dispersion = epsilonk_square,
-                            Us = [1.0,2.0,3.0,4.0], alpha=1.0/3.0, 
-                            n_ks = [24],
-                            n_loops_min = 5, n_loops_max=25, rules = [[0, 0.0]],
-                            trilex = False,
-                            use_cthyb=True, n_cycles=100000, max_time=10*60,
-                            initial_guess_archive_name = '', suffix='')
-except:
-  print " broken!!!"
-
-try:
-  supercond_hubbard_calculation( Ts = [0.08,0.04,0.02,0.01,0.005], 
-                            mutildes=[0.0, 0.2, 0.4, 0.6, 0.8], 
-                            ts=[0.25], t_dispersion = epsilonk_square,
-                            Us = [1.0,2.0,3.0,4.0], alpha=0.5, 
-                            n_ks = [24],
-                            n_loops_min = 5, n_loops_max=25, rules = [[0, 0.2], [6, 0.0], [12, 0.5]],
-                            trilex = True,
-                            use_cthyb=True, n_cycles=20000, max_time=10*60,
-                            initial_guess_archive_name = '', suffix='')
-except:
-  print " broken!!!"
-
-
 
 
 quit()
-
-
-
-
-
-
-
 
 
 #quit()
