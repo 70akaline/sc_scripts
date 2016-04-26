@@ -225,7 +225,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
         for kyi in range(dt.n_k):
           for wi in range(dt.nw):
             for U in fermionic_struct.keys():
-              dt.hcks[U][kxi, kyi] += X_dwave(dt.ks[kxi],dt.ks[kyi], h)
+              dt.hcks[U][kxi, kyi] = X_dwave(dt.ks[kxi],dt.ks[kyi], h)
    
     mpi.barrier()
     #run dmft!-------------
