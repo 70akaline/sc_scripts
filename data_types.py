@@ -919,7 +919,7 @@ class GW_data(edmft_data):
                                     freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2),
                                     symmetrize_wi2_range = True ),
                   su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling )
-    if su2_symmetry: 
+    if su2_symmetry and ('down' in fermionic_struct.keys()): 
       Sigma['down'] = copy.deepcopy(Sigma['up'])
 
 

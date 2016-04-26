@@ -47,7 +47,8 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     del bosonic_struct['0']
 
   fermionic_struct = {'up': [0], 'down': [0]}
-
+  if not trilex:
+    del fermionic_struct['down']
   beta = 1.0/Ts[0] 
   
   n_iw = int(((w_cutoff*beta)/math.pi-1.0)/2.0)
