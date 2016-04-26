@@ -31,7 +31,9 @@ from impurity_solvers import *
 def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01], 
                             mutildes=[0.0, 0.2, 0.4, 0.6, 0.8], 
                             ts=[0.25], t_dispersion = epsilonk_square,
-                            Us = [1.0,2.0,3.0,4.0], alpha=2.0/3.0, 
+                            Us = [1.0,2.0,3.0,4.0], alpha=2.0/3.0,
+                            hs = [0.0, 0.01,0.03, 0.05, 0.1],  
+                            frozen_boson = False, refresh_X = True,
                             n_ks = [24], 
                             w_cutoff = 20.0,
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
@@ -99,7 +101,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
 
   #initial guess
   
-  ps = itertools.product(n_ks,ts,mutildes,Us,Ts)
+  ps = itertools.product(n_ks,ts,mutildes,Us,Ts,hs)
 
   counter = 0
   old_nk = n_k
@@ -113,6 +115,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     nk = p[0]
     T = p[4] 
     beta = 1.0/T
+    h = p[5]
 
     if nk!=old_nk:
       dt.change_ks(IBZ.k_grid(nk))
@@ -156,7 +159,10 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     if trilex: 
       preset = supercond_trilex_hubbard(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct)
     else:
-      preset = supercond_hubbard()
+      if frozen_boson and (T!=Ts[0]):
+        preset = supercond_hubbard(frozen_boson=True, refresh_X=refresh_X)
+      else:
+        preset = supercond_hubbard(frozen_boson=False, refresh_X=refresh_X)
 
     if mpi.is_master_node():
       print "U = ",U," alpha= ",alpha, "Uch= ",Uch," Usp=",Usp," mutilde= ",mutilde
@@ -202,23 +208,30 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       for U in fermionic_struct.keys(): dt.Sigmakw[U].fill(0)
       for U in fermionic_struct.keys(): dt.Xkw[U].fill(0)
     if (T==Ts[0]) and not trilex: #do this only once!         
-      dt.mus['up'] = dt.mus['down'] = mutilde
+      dt.mus['up'] = mutilde
       dt.P_imp_iw << 0.0    
       dt.Sigma_loc_iw << 0.0 #making sure that in the first iteration the impurity problem is half-filled. if not solving impurity problem, not needed
       for U in fermionic_struct.keys(): dt.Sigmakw[U].fill(0)
       for U in fermionic_struct.keys(): dt.Xkw[U].fill(0)
     
-    for kxi in range(n_k):
-      for kyi in range(n_k):
+    for kxi in range(dt.n_k):
+      for kyi in range(dt.n_k):
         for wi in range(dt.nw):
           for U in fermionic_struct.keys():
             dt.Xkw[U][wi, kxi, kyi] += X_dwave(dt.ks[kxi],dt.ks[kyi], 0.5)
+
+    if h!=0.0:
+      for kxi in range(dt.n_k):
+        for kyi in range(dt.n_k):
+          for wi in range(dt.nw):
+            for U in fermionic_struct.keys():
+              dt.hcks[U][kxi, kyi] += X_dwave(dt.ks[kxi],dt.ks[kyi], h)
    
     mpi.barrier()
     #run dmft!-------------
     err = dmft.run( dt,
                     n_loops_max=n_loops_max, n_loops_min=n_loops_min,
-                    print_three_leg=1, print_non_local=1,
+                    print_three_leg=1, print_non_local=4,
                     skip_self_energy_on_first_iteration=True,
                     last_iteration_err_is_allowed = 15 )
     if (err==2): break

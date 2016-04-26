@@ -919,7 +919,7 @@ class GW_data(edmft_data):
                                     freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2),
                                     symmetrize_wi2_range = True ),
                   su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling )
-    if su2_symmetry and ('down' in fermionic_struct.keys()): 
+    if su2_symmetry and ('down' in self.fermionic_struct.keys()): 
       Sigma['down'] = copy.deepcopy(Sigma['up'])
 
 
@@ -1203,7 +1203,7 @@ class supercond_data(GW_data):
     for U in self.fermionic_struct.keys():
       for wi in (range(self.nw) if wi_list==[] else wi_list):
         function_applicators.subtract_loc_from_k_dependent(self.Xkw[U][wi,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
-        #self.Xkw[U][wi,:,:] += hsck[:,:]
+        self.Xkw[U][wi,:,:] += self.hsck[U][:,:]
 
   def get_Pqnu(self, simple = False, use_IBZ_symmetry = True, ising_decoupling=False, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
     GW_data.get_Pqnu(self, simple, use_IBZ_symmetry, ising_decoupling, su2_symmetry, nui_list, Lambda) 
