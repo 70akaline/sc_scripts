@@ -220,6 +220,6 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                     print_three_leg=1, print_non_local=1,
                     skip_self_energy_on_first_iteration=True,
                     last_iteration_err_is_allowed = 15 )
-    if (err==2) break
+    if (err==2): break
     counter += 1
   return err
