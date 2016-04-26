@@ -50,7 +50,8 @@ class dmft_loop:
   def run(self, data, 
                 n_loops_max=100, n_loops_min=5, 
                 print_non_local=1, print_three_leg=1,
-                skip_self_energy_on_first_iteration=False ): #1 every iteration, 2 every second, -2 never (except for final)
+                skip_self_energy_on_first_iteration=False,  #1 every iteration, 2 every second, -2 never (except for final)
+                last_iteration_err_is_allowed = 15 ):
     for mixer in self.mixers:
       mixer.get_initial()
     for conv in self.convergers:
@@ -63,6 +64,7 @@ class dmft_loop:
         data.dump_non_interacting(suffix='')
 
     converged = False     
+    failed = False
     for loop_index in range(n_loops_max):
       if mpi.is_master_node():
         print "---------------------------- loop_index: ",loop_index,"/",n_loops_max,"---------------------------------"
@@ -72,7 +74,8 @@ class dmft_loop:
 
       if not (self.cautionary is None):
         data.err = self.cautionary.check_and_fix(data)        
-
+        if data.err and (loop_index > last_iteration_err_is_allowed):
+          failed = True
       self.lattice(data=data)
 
       self.pre_impurity(data=data)
@@ -115,7 +118,10 @@ class dmft_loop:
         data.dump_all(suffix='-final') 
       return 0  
     else:
-      return 1 #maximum number of loops reached  
+      if failed:
+        return 2 #probably hitting AFM
+      else:
+        return 1 #maximum number of loops reached  
 
 
 ################################# CONVERGENCE and MIXING ###############################################
@@ -149,6 +155,10 @@ class mixer:
 
   def mix_regular(self, ratio):
     self.mq = ratio*self.mq_old + (1.0-ratio)*self.mq
+
+  def mix_lattice_gf(self, ratio):
+    for key in self.mq.keys():
+      self.mq[key][:,:,:] = ratio*self.mq_old[key][:,:,:] + (1.0-ratio)*self.mq[key][:,:,:]
 
   def mix_dictionary(self, ratio):
     for key in self.mq.keys():

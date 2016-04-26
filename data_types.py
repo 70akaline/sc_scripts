@@ -52,6 +52,12 @@ class mats_freq:
   @staticmethod    
   def bosonic( m, beta): return  ( 2*m )*pi/beta
 
+  @staticmethod    
+  def fermionic_n_from_w( w, beta): return  int(((w*beta)/math.pi-1.0)/2.0)
+  @staticmethod    
+  def bosonic_m_from_nu( nu, beta): return  int(((nu*beta)/math.pi)/2.0)
+
+
   @staticmethod          
   def change_temperature(Q_old, Q_new, ws_old, ws_new, Q_old_wrapper=lambda iw: 0.0): #can be also used to change the number of points
     j_old = 0
@@ -898,6 +904,8 @@ class GW_data(edmft_data):
     Sigma_dict = {}
     for U in self.fermionic_struct.keys():
       Sigma_dict[U] = Sigma[U].data[:,0,0]
+
+    m_max = mats_freq.bosonic_m_from_nu(800.0, self.beta)
     bubble.full.Sigma\
                 ( self.fermionic_struct, self.bosonic_struct, 
                   Sigma_dict, 
@@ -907,8 +915,9 @@ class GW_data(edmft_data):
                   func = partial(bubble.wsum.local, 
                                     beta=self.beta,
                                     nw1 = self.nw, nw2 = self.nnu,  
-                                    wi1_list = wi_list, wi2_list = range(self.m_to_nui(-5000)+self.n_to_wi(0),self.m_to_nui(5000)+self.n_to_wi(0)),                            
-                                    freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2) ),
+                                    wi1_list = wi_list, wi2_list = range(self.m_to_nui(-m_max)+self.n_to_wi(0),self.m_to_nui(m_max)+self.n_to_wi(0)),                            
+                                    freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2),
+                                    symmetrize_wi2_range = True ),
                   su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling )
     if su2_symmetry: 
       Sigma['down'] = copy.deepcopy(Sigma['up'])
@@ -920,6 +929,7 @@ class GW_data(edmft_data):
     P_dict = {}
     for A in self.bosonic_struct.keys():
       P_dict[A] = P[A].data[:,0,0]
+    n_max = mats_freq.fermionic_n_from_w(800.0, self.beta)
     bubble.full.P\
                 ( self.fermionic_struct, self.bosonic_struct, 
                   P_dict,
@@ -928,7 +938,7 @@ class GW_data(edmft_data):
                   func = partial(bubble.wsum.local, 
                                     beta=self.beta,
                                     nw1 = self.nnu, nw2 = self.nw,  
-                                    wi1_list = nui_list, wi2_list = range(self.n_to_wi(-5000)+self.n_to_wi(0),self.n_to_wi(5000)+self.n_to_wi(0)),                            
+                                    wi1_list = nui_list, wi2_list = range(self.n_to_wi(-n_max-1),self.n_to_wi(n_max)),                            
                                     freq_sum = lambda wi1, wi2: wi2 + self.m_from_nui(wi1) ),
                   su2_symmetry=su2_symmetry )
 

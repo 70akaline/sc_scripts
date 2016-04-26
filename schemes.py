@@ -113,7 +113,7 @@ class edmft: #deals with bosonic quantities, edmft style
         for i in range(data.nnu):
           if (data.P_loc_iw[A].data[i,0,0].real > 0):      
             data.P_loc_iw[A].data[i,0,0] = 0.0
-            clipped = True        
+            #clipped = True        
           if (data.P_loc_iw[A].data[i,0,0].real < safe_values[A]) and (safe_values[A]<0.0):      
             data.P_loc_iw[A].data[i,0,0] = prefactor*safe_values[A] + 1j*data.P_loc_iw[A].data[i,0,0].imag
             clipped = True        
@@ -515,7 +515,15 @@ class supercond_hubbard:
           for wi in range(data.nw):
             for kxi in range(data.n_k):
               for kyi in range(data.n_k):            
-                 data.Xkw[U][wi, kxi, kyi] += X_dwave(data.ks[kxi],data.ks[kyi], 0.1)
+                 data.Xkw[U][wi, kxi, kyi] += X_dwave(data.ks[kxi],data.ks[kyi], 0.3)
+
+      if (self.it_counter >= 5) and (self.it_counter < 8):
+        for U in data.fermionic_struct.keys():
+          for wi in range(data.nw):
+            for kxi in range(data.n_k):
+              for kyi in range(data.n_k):            
+                 data.Xkw[U][wi, kxi, kyi] *= 2.0
+
         
         data.Xkw[U][wi, kxi, kyi] += X_dwave(data.ks[kxi],data.ks[kyi], 0.1)  
       self.it_counter += 1 

@@ -96,7 +96,6 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             archive_name=dt.archive_name,
                             h5key = 'diffs_G_loc'     ) ]
 
-  err = 0
   #initial guess
   
   ps = itertools.product(n_ks,ts,mutildes,Us,Ts)
@@ -176,10 +175,10 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     else:
       impurity = lambda data: None
 
-    mixers = [ mixer( mixed_quantity = dt.P_imp_iw,
+    mixers = [ mixer( mixed_quantity = dt.P_loc_iw,
                       rules=rules,
                       func=mixer.mix_gf ),
-               mixer( mixed_quantity = dt.Sigma_imp_iw,
+               mixer( mixed_quantity = dt.Sigma_loc_iw,
                       rules=rules,
                       func=mixer.mix_gf)  ]
 
@@ -212,14 +211,15 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       for kyi in range(n_k):
         for wi in range(dt.nw):
           for U in fermionic_struct.keys():
-            dt.Xkw[U][wi, kxi, kyi] += X_dwave(dt.ks[kxi],dt.ks[kyi], 0.1)
-    
-    #if initial_guess_archive_name!='':
-    #  dt.load_initial_guess_from_file(initial_guess_archive_name, suffix)
-      #dt.load_initial_guess_from_file("/home/jvucicev/TRIQS/run/sc_scripts/Archive_Vdecoupling/edmft.mutilde0.0.t0.25.U3.0.V2.0.J0.0.T0.01.h5")
+            dt.Xkw[U][wi, kxi, kyi] += X_dwave(dt.ks[kxi],dt.ks[kyi], 0.5)
    
     mpi.barrier()
     #run dmft!-------------
-    err += dmft.run(dt, n_loops_max=n_loops_max, n_loops_min=n_loops_min,  print_three_leg=1, print_non_local=1, skip_self_energy_on_first_iteration=True )
+    err = dmft.run( dt,
+                    n_loops_max=n_loops_max, n_loops_min=n_loops_min,
+                    print_three_leg=1, print_non_local=1,
+                    skip_self_energy_on_first_iteration=True,
+                    last_iteration_err_is_allowed = 15 )
+    if (err==2) break
     counter += 1
   return err

@@ -210,12 +210,16 @@ class bubble:
     def local    (  beta,
                     nw1, nw2, wi1_list = [], wi2_list = [],
                     G1 = lambda wi: 0.0,   G2 = lambda wi: 0.0,  Lambda = lambda wi1, wi2: 1.0, 
-                    freq_sum = lambda wi1, wi2: wi1 + wi2 ): 
+                    freq_sum = lambda wi1, wi2: wi1 + wi2,
+                    symmetrize_wi2_range = False ): 
       res = numpy.zeros((nw1), dtype=numpy.complex_)      
       for wi1 in (range(nw1) if wi1_list==[] else wi1_list):      
         if wi1 % mpi.size != mpi.rank: continue      
-        if wi2_list != []:
-          wi2_list_shifted = [wi2-wi1 for wi2 in wi2_list]
+        if (wi2_list != []):
+          if symmetrize_wi2_range:
+            wi2_list_shifted = [wi2-wi1 for wi2 in wi2_list]
+          else:
+            wi2_list_shifted = wi2_list
         for wi2 in  (range(nw2) if wi2_list==[] else wi2_list_shifted):
           wi12 = freq_sum(wi1,wi2) 
           res[wi1] += Lambda(wi1, wi2) * G1(wi12) * G2(wi2)
