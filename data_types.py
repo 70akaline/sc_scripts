@@ -629,11 +629,17 @@ class fermionic_data(basic_data):
           self.epsilonk[U][i,j] = func[U](self.ks[i], self.ks[j])
 
   def get_n_from_G_loc(self):
-    G = self.G_loc_iw.copy()  
-    #prepare_G0_iw(G, self.G_loc_iw, self.fermionic_struct, starting_iw=14.0)
     for U in self.fermionic_struct.keys():
+      Gw = self.G_loc_iw[U].copy()
+      known_coeff = TailGf(1,1,3,-1)
+      known_coeff[-1] = array([[0.]])
+      known_coeff[0] = array([[0.]])
+      known_coeff[1] = array([[1.]])    
+      nmax = Gw.mesh.last_index()
+      nmin = int(((14.0*self.beta)/math.pi-1.0)/2.0) 
+      Gw.fit_tail(known_coeff,5,nmin,nmax, False)
       Gtau = GfImTime(indices = self.fermionic_struct[U], beta = self.beta, n_points =3*self.n_iw, statistic = 'Fermion')
-      Gtau << InverseFourier(G[U])
+      Gtau << InverseFourier(Gw)
       self.ns[U] = -Gtau.data[-1,0,0]
 
   def get_fermionic_loc_direct(self,Q,func):

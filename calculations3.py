@@ -38,7 +38,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             w_cutoff = 20.0,
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
                             trilex = False,
-                            use_cthyb=True, n_cycles=100000, max_time=10*60,
+                            use_cthyb=True, n_cycles=100000, max_time=10*60, accuracy = 1e-4,
                             initial_guess_archive_name = '', suffix=''):
   if mpi.is_master_node(): print "WELCOME TO supercond hubbard calculation!"
 
@@ -89,12 +89,12 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
 
   #init convergence and cautionary measures
   convergers = [ converger( monitored_quantity = lambda: dt.P_loc_iw,
-                            accuracy=1e-4, 
+                            accuracy=accuracy, 
                             struct=bosonic_struct, 
                             archive_name=dt.archive_name,
                             h5key = 'diffs_P_loc' ),
                  converger( monitored_quantity = lambda: dt.G_loc_iw,
-                            accuracy=1e-4, 
+                            accuracy=accuracy, 
                             struct=fermionic_struct, 
                             archive_name=dt.archive_name,
                             h5key = 'diffs_G_loc'     ) ]
@@ -154,7 +154,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       del vks['0']
     
     dt.fill_in_Jq( vks )  
-    dt.fill_in_epsilonk(dict.fromkeys(['up','down'], partial(t_dispersion, t=t)))
+    dt.fill_in_epsilonk(dict.fromkeys(fermionic_struct.keys(), partial(t_dispersion, t=t)))
 
     if trilex: 
       preset = supercond_trilex_hubbard(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct)
@@ -231,7 +231,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     #run dmft!-------------
     err = dmft.run( dt,
                     n_loops_max=n_loops_max, n_loops_min=n_loops_min,
-                    print_three_leg=1, print_non_local=4,
+                    print_three_leg=1, print_non_local=1,
                     skip_self_energy_on_first_iteration=True,
                     last_iteration_err_is_allowed = 15 )
     if (err==2): break
