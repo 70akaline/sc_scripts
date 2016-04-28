@@ -139,9 +139,9 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
 
 
     if trilex:
-      dt.archive_name="supercond_trilex.mutilde%s.t%s.U%s.alpha%s.T%s.nk%s.h5"%(mutilde,t,U,alpha,T,nk )
+      dt.archive_name="T%s.nk%s.h5"%(T,nk)
     else:
-      dt.archive_name="supercond.mutilde%s.t%s.U%s.alpha%s.T%s.nk%s.h5"%(mutilde,t,U,alpha,T,nk)
+      dt.archive_name="T%s.nk%s.h5"%(T,nk)
     for conv in convergers:
       conv.archive_name = dt.archive_name
 
@@ -218,14 +218,14 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       for kyi in range(dt.n_k):
         for wi in range(dt.nw):
           for U in fermionic_struct.keys():
-            dt.Xkw[U][wi, kxi, kyi] += X_dwave(dt.ks[kxi],dt.ks[kyi], 0.5)
+            dt.Xkw[U][wi, kxi, kyi] += X_dwave(dt.ks[kxi],dt.ks[kyi], 1.0)
 
     if h!=0.0:
       for kxi in range(dt.n_k):
         for kyi in range(dt.n_k):
           for wi in range(dt.nw):
             for U in fermionic_struct.keys():
-              dt.hcks[U][kxi, kyi] = X_dwave(dt.ks[kxi],dt.ks[kyi], h)
+              dt.hsck[U][kxi, kyi] = X_dwave(dt.ks[kxi],dt.ks[kyi], h)
    
     mpi.barrier()
     #run dmft!-------------
@@ -233,7 +233,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                     n_loops_max=n_loops_max, n_loops_min=n_loops_min,
                     print_three_leg=1, print_non_local=1,
                     skip_self_energy_on_first_iteration=True,
-                    last_iteration_err_is_allowed = 15 )
+                    last_iteration_err_is_allowed = 18 )
     if (err==2): break
     counter += 1
   return err

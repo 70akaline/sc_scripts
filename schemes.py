@@ -514,12 +514,12 @@ class supercond_hubbard:
           data.Sigma_loc_iw[U].data[data.n_to_wi(n), 0, 0] = symSig
           data.Sigma_loc_iw[U].data[data.n_to_wi(0)-1-n, 0, 0] = numpy.conj(symSig)
 
-      if (self.it_counter < 5) and self.refresh_X:
+      if (self.it_counter < 10) and self.refresh_X:
         for U in data.fermionic_struct.keys():
           for wi in range(data.nw):
             for kxi in range(data.n_k):
               for kyi in range(data.n_k):            
-                 data.Xkw[U][wi, kxi, kyi] += X_dwave(data.ks[kxi],data.ks[kyi], 0.3)
+                 data.Xkw[U][wi, kxi, kyi] += X_dwave(data.ks[kxi],data.ks[kyi], 1.0)
 
       #if (self.it_counter >= 5) and (self.it_counter < 8):
       #  for U in data.fermionic_struct.keys():
