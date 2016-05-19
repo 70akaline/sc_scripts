@@ -17,6 +17,7 @@ import pytriqs.utility.mpi as mpi
 
 ############################################## MAIN CODES ###################################
 from dmft_loop import *
+from formulae import *
 from data_types import *
 from schemes import *
 from impurity_solvers import *
@@ -78,12 +79,12 @@ def pm_tUV_trilex_calculation( T, mutildes=[0.0],
                     archive_name="so_far_nothing_you_shouldnt_see_this_file" )
 
   #init convergence and cautionary measures
-  convergers = [ converger( monitored_quantity = dt.P_imp_iw,
+  convergers = [ converger( monitored_quantity = lambda: dt.P_imp_iw,
                             accuracy=1e-4, 
                             struct=bosonic_struct, 
                             archive_name=dt.archive_name,
                             h5key = 'diffs_P_imp' ),
-                 converger( monitored_quantity = dt.G_imp_iw,
+                 converger( monitored_quantity = lambda: dt.G_imp_iw,
                             accuracy=1e-4, 
                             struct=fermionic_struct, 
                             archive_name=dt.archive_name,
@@ -109,7 +110,13 @@ def pm_tUV_trilex_calculation( T, mutildes=[0.0],
     U = p[2]
     V = p[3]
 
-    dt.archive_name="trilex.mutilde%s.t%s.U%s.alpha%s.V%s.T%s.h5"%(mutilde,t,U,alpha,V,T)
+    filename = "result"
+    if len(mutildes)>1: filename += ".mutilde%s"%mutilde
+    if len(ts)>1: filename += ".t%s"%t
+    if len(Us)>1: filename += ".U%s"%U
+    if len(Vs)>1: filename += ".V%s"%V
+    filename += ".h5"
+    dt.archive_name = filename
 
     for conv in convergers:
       conv.archive_name = dt.archive_name
@@ -123,19 +130,14 @@ def pm_tUV_trilex_calculation( T, mutildes=[0.0],
       del vks['0']
     
     dt.fill_in_Jq( vks )  
-
-    dt.fill_in_ks()
     dt.fill_in_epsilonk(dict.fromkeys(['up','down'], partial(t_dispersion, t=t)))
-
-    if mpi.is_master_node():
-      dt.dump_non_interacting()
 
     preset = trilex_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct)
 
-    preset.cautionary.get_safe_values(dt.Jq, dt.bosonic_struct, n_q, n_q)
+    #preset.cautionary.get_safe_values(dt.Jq, dt.bosonic_struct, n_q, n_q)
     if mpi.is_master_node():
       print "U = ",U," alpha= ",alpha, "Uch= ",Uch," Usp=",Usp," mutilde= ",mutilde
-      print "cautionary safe values: ",preset.cautionary.safe_value  
+      #print "cautionary safe values: ",preset.cautionary.safe_value  
     
     
     impurity = partial( solvers.cthyb.run, no_fermionic_bath=False, 
@@ -170,6 +172,6 @@ def pm_tUV_trilex_calculation( T, mutildes=[0.0],
    
     mpi.barrier()
     #run dmft!-------------
-    err += dmft.run(dt, n_loops_max=n_loops_max, n_loops_min=n_loops_min, print_non_loc=True)
+    err += dmft.run(dt, n_loops_max=n_loops_max, n_loops_min=n_loops_min, print_non_local=True)
     counter += 1
   return err

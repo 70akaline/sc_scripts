@@ -115,7 +115,8 @@ class solvers:
           symmetrize_blockgf(data.G_imp_iw, data.fermionic_struct)
           symmetrize_blockgf(data.solver.F_iw, data.fermionic_struct)
        
-        extract_Sigma_from_F_and_G(data.Sigma_imp_iw, data.solver.F_iw, data.G_imp_iw)
+        extract_Sigma_from_F_and_G(data.Sigma_imp_iw, data.solver.F_iw, data.G_imp_iw) #!!!! this thing fails when there are Jperp interactions
+        #extract_Sigma_from_G0_and_G(data.Sigma_imp_iw, data.solver.G0_iw, data.G_imp_iw)
 
       except Exception as e:
         import traceback, os.path, sys
@@ -211,6 +212,10 @@ def prepare_D0_iw(D0_iw, Uweiss_iw, fermionic_struct, bosonic_struct):
 
 def extract_Sigma_from_F_and_G(Sigma_iw, F_iw, G_iw):
   Sigma_iw << inverse(G_iw)*F_iw
+
+def extract_Sigma_from_G0_and_G(Sigma_iw, G0_iw, G_iw):
+  Sigma_iw << inverse(G0_iw) - inverse(G_iw)
+
 
 def fit_and_overwrite_tails_on_Sigma(Sigma_iw, starting_iw=14.0):
   fixed_coeff = TailGf(1,1,1,-1)

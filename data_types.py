@@ -33,6 +33,24 @@ import copy
 #  function_applicators contain function that fill the containers with given 
 #     scalar functions
 
+#def lattfullFT(Qkw, beta, n_tau, n_iw, nk, statistic='Fermion'):
+#    Qktau = np.zeros((ntau,nk,nk), dtype=np.complex_)
+#    g = GfImFreq(indices = [0], beta = beta, n_points = n_iw, statistic=statistic)
+#    gtau = GfImTime(indices = [0], beta = beta, n_points = n_tau, statistic=statistic)
+#    nw = len(g.data[:,0,0])
+#    for kxi in range(nk):
+#        for kyi in range(nk):
+#            for wi in range(nw):
+#                g.data[wi,0,0] = Qkw[wi,kxi,kyi]
+#            gtau << InverseFourier(g)
+#            for taui in range(ntau):   
+#                Qktau[taui,kxi,kyi] = gtau.data[taui,0,0]
+#    Qijtau = np.zeros((ntau,nk,nk), dtype=np.complex_)                   
+#    for taui in range(ntau):
+#        Qijtau[taui,:,:] = np.fft.ifft2(Qktau[taui,:,:])        
+#    del Qktau   
+
+#    return Qijtau
 
 #--------------------------------------------------------------------------#
 class interpolation:
@@ -127,6 +145,21 @@ class mats_freq:
       g.fit_tail(fixed_coeff,3,nmin,nmax, False) 
       tail = [g.tail[i][0,0] for i in range(4)]
     return tail
+
+  @staticmethod
+  def lattFT(Qkw, beta, n_tau, n_iw, nk, statistic='Fermion'):
+    Qktau = np.zeros((ntau,nk,nk), dtype=np.complex_)
+    g = GfImFreq(indices = [0], beta = beta, n_points = n_iw, statistic=statistic)
+    gtau = GfImTime(indices = [0], beta = beta, n_points = n_tau, statistic=statistic)
+    nw = len(g.data[:,0,0])
+    for kxi in range(nk):
+        for kyi in range(nk):
+            for wi in range(nw):
+                g.data[wi,0,0] = Qkw[wi,kxi,kyi]
+            gtau << InverseFourier(g)
+            for taui in range(ntau):   
+                Qktau[taui,kxi,kyi] = gtau.data[taui,0,0]
+    return Qktau
 
 
 #--------------------------------------------------------------------------#
@@ -484,7 +517,7 @@ class bosonic_data(basic_data):
     self.sum_q_dependent(self.chi_loc_iw, lambda A,i,qx,qy: func[A](self.P_loc_iw[A].data[i,0,0], self.Jq[A][qx,qy]) )
 
   def get_chi_loc_direct(self, func):
-    self.get_loc_direct(self.chi_loc_iw, lambda A,i: func[A](self.P_loc_iw[A].data[i,0,0]) )
+    self.get_bosonic_loc_direct(self.chi_loc_iw, lambda A,i: func[A](self.P_loc_iw[A].data[i,0,0]) )
 
   def get_Uweiss_from_chi(self, func):
     self.get_bosonic_loc_direct(self.Uweiss_iw, lambda A,i: func[A](self.P_loc_iw[A].data[i,0,0],self.chi_loc_iw[A].data[i,0,0]) )
@@ -1205,7 +1238,7 @@ class supercond_data(GW_data):
                                     freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2), 
                                     func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_IBZ_symmetry)\
                                 ),
-                  su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling, p = {'0': 1.0, '1': -1.0} )
+                  su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling, p = {'0': -1.0, '1': 1.0} )
     for U in self.fermionic_struct.keys():
       for wi in (range(self.nw) if wi_list==[] else wi_list):
         function_applicators.subtract_loc_from_k_dependent(self.Xkw[U][wi,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
@@ -1229,7 +1262,7 @@ class supercond_data(GW_data):
                                     freq_sum = lambda wi1, wi2: wi2 + self.m_from_nui(wi1), 
                                     func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_IBZ_symmetry)\
                                 ),
-                  su2_symmetry=su2_symmetry, p = {'0': 1.0, '1': -1.0} )
+                  su2_symmetry=su2_symmetry, p = {'0': -1.0, '1': 1.0} )
     for A in self.bosonic_struct.keys():
       for nui in (range(self.nnu) if nui_list==[] else nui_list):
         function_applicators.subtract_loc_from_k_dependent(self.Qqnu[A][nui,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero

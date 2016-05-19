@@ -188,7 +188,7 @@ class GW:
     data.get_Sigmakw() #gets Sigmakw from Gkw and Wqnu
     data.get_Pqnu() #gets Pqnu from Gkw
 
-  class cautionary(edmft.cautionary): #makes sure divergence in propagators is avoided. safe margin needs to be provided
+  class cautionary(edmft.cautionary): #makes sure divergence in propagators is avoided
     def check_and_fix(self, data):
       #operates directly on data.P_loc_iw as this is the one that will be used in chiqnu calculation
       clipped = edmft.cautionary.check_and_fix(self, data, finalize=False)
@@ -575,4 +575,42 @@ class supercond_trilex_hubbard:
     edmft.polarization(data)
     data.get_Sigmakw()
     data.get_Xkw()
-    data.get_Pqnu()
+
+
+#--------------------supercond trilex tUVJ model, HS-VJ scheme (only non-local interactions are decoupled - reduces to DFMT if V and J are zero)---------------------------------------#
+
+class supercond_trilex_tUVJ:
+  def __init__(self, n, U, bosonic_struct, C=4.0): #mutilde is searched for to get the desired n. the initial guess for mu needs to be provided. no need to pass V or J, it is included in Jq.
+    self.n = n
+    self.C = C
+    self.selfenergy = supercond_trilex_hubbard.selfenergy
+    self.lattice = partial( supercond_hubbard.lattice, frozen_boson = False )
+    self.cautionary = GW.cautionary()    
+    self.pre_impurity = partial( self.pre_impurity, n=n, U=U, C=C )
+    self.post_impurity = trilex_hubbard_pm.post_impurity
+    self.after_it_is_done = trilex_hubbard_pm.after_it_is_done  
+
+  @staticmethod 
+  def pre_impurity(data, n, U, C):
+    data.get_Gweiss(func = dict.fromkeys(data.fermionic_struct.keys(), dyson.scalar.J_from_P_and_W) )
+    data.get_Uweiss_from_W(func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.J_from_P_and_W) )
+
+    data.Uweiss_dyn_iw << data.Uweiss_iw #prepare the non-static part - static part goes separately in the impurity solver  
+    for A in data.bosonic_struct.keys(): 
+      fit_and_remove_constant_tail(data.Uweiss_dyn_iw[A], starting_iw=14.0) 
+
+    prepare_G0_iw(data.solver.G0_iw, data.Gweiss_iw, data.fermionic_struct)
+    prepare_D0_iw(data.solver.D0_iw, data.Uweiss_dyn_iw, data.fermionic_struct, data.bosonic_struct)    
+    if '1' in data.bosonic_struct.keys(): prepare_Jperp_iw(data.solver.Jperp_iw, data.Uweiss_dyn_iw['1']*4.0)
+    else: data.solver.Jperp_iw << 0.0
+
+    #adjust chemical potential  
+    if (n==0.5):
+      data.mus['up'] = U/2.0
+      if '0' in data.bosonic_struct.keys():
+        data.mus['up'] += data.Uweiss_dyn_iw['0'].data[data.nnu/2,0,0]  
+    else:
+      data.mus['up'] +=  (n - data.ns['up'])*C
+    data.mus['down'] = data.mus['up']
+  
+    data.U_inf = U

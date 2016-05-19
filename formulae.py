@@ -189,7 +189,30 @@ class bubble:
       if use_IBZ_symmetry: IBZ.copy_by_symmetry(res[:,:], nk)     
       return res/nk**2.0
 
-  class wsum:
+  class imtime:   
+    @staticmethod
+    def non_local(  beta,
+                    ntau, nk, taui_list = [],
+                    G1 = lambda taui, kxi, kyi: 0.0,   G2 = lambda taui, kxi, kyi: 0.0,  Lambda = lambda wi1, wi2: 1.0 ):      
+      res = numpy.zeros((ntau,nk,nk), dtype=numpy.complex_) 
+      for taui in range(ntau):
+        if taui % mpi.size != mpi.rank: continue       
+        res[taui,:,:] += Lambda(0,0) * func(nk = nk,  G1 = lambda kxi, kyi: G1(taui,kxi,kyi), G2 = lambda kxi, kyi: G2(taui,kxi,kyi))
+      res[:,:,:] = mpi.all_reduce(0, res, 0)       
+      return res
+
+    @staticmethod
+    def local    (  beta,
+                    ntau, taui_list = [],
+                    G1 = lambda taui: 0.0,   G2 = lambda taui: 0.0,  Lambda = lambda wi1, wi2: 1.0 ): 
+      res = numpy.zeros((ntau), dtype=numpy.complex_) 
+      for taui in range(ntau):
+        if taui % mpi.size != mpi.rank: continue      
+        res[taui] += Lambda(0, 0) * G1(taui) * G2(taui)
+      res[:] = mpi.all_reduce(0, res, 0)    
+      return res
+
+  class wsum:   
     @staticmethod
     def non_local(  beta,
                     nw1, nw2, nk, wi1_list = [],
