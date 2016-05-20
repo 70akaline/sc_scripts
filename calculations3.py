@@ -95,7 +95,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     dt.get_Sigmakw = partial(dt.get_Sigmakw, imtime = True)
     dt.get_Xkw = partial(dt.get_Xkw, imtime = True)
     dt.get_Pqnu = partial(dt.get_Pqnu, imtime = True)
-    dt.get_Sigma_loc_from_local_bubble = partial(dt.get_P_loc_from_local_bubble, imtime = True)
+    dt.get_Sigma_loc_from_local_bubble = partial(dt.get_Sigma_loc_from_local_bubble, imtime = True)
     dt.get_P_loc_from_local_bubble = partial(dt.get_P_loc_from_local_bubble, imtime = True)
    
 
@@ -269,7 +269,10 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     mpi.barrier()
     #run dmft!-------------
     err = dmft.run( dt,
-                    n_loops_max=n_loops_max, n_loops_min=n_loops_min,
+                    n_loops_max=2, 
+                    n_loops_min=0,
+                    #n_loops_max=n_loops_max, 
+                    #n_loops_min=n_loops_min,
                     print_three_leg=1, print_non_local=1,
                     skip_self_energy_on_first_iteration=True,
                     last_iteration_err_is_allowed = 18 )

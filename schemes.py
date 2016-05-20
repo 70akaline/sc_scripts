@@ -485,6 +485,7 @@ class supercond_hubbard:
 
   @staticmethod 
   def selfenergy(data, frozen_boson):
+    print "selfenergy: frozen_bozon: ",frozen_boson
     data.get_Sigma_loc_from_local_bubble()
     if not frozen_boson: data.get_P_loc_from_local_bubble()
     data.get_Sigmakw()

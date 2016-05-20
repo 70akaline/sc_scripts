@@ -147,7 +147,7 @@ class mats_freq:
     return tail
 
   @staticmethod
-  def latt_FT(Qktau, beta, ntau, n_iw, nk, statistic='Fermion'):
+  def latt_FT(Qktau, beta, ntau, n_iw, nk, statistic='Fermion', use_IBZ_symmetry = True):
     #print "ntau: ", ntau
     g = GfImFreq(indices = [0], beta = beta, n_points = n_iw, statistic=statistic)
     gtau = GfImTime(indices = [0], beta = beta, n_points = ntau, statistic=statistic)
@@ -156,8 +156,12 @@ class mats_freq:
     nw = len(g.data[:,0,0])
     Qkw = numpy.zeros((nw,nk,nk), dtype=numpy.complex_)
     counter = -1
-    for kxi in range(nk):
-      for kyi in range(nk):
+    if use_IBZ_symmetry: max_kxi = nk/2+1
+    else: max_kxi = nk
+    for kxi in range(max_kxi):
+      if use_IBZ_symmetry: max_kyi = nk/2+1 
+      else: max_kyi = nk
+      for kyi in range(max_kyi):
         counter += 1 
         if counter % mpi.size != mpi.rank: continue
         for taui in range(ntau):
@@ -165,18 +169,25 @@ class mats_freq:
         g << Fourier(gtau)
         for wi in range(nw):   
           Qkw[wi,kxi,kyi] = g.data[wi,0,0]
-    Qktau[:,:,:] = mpi.all_reduce(0, Qktau, 0)
+    Qkw[:,:,:] = mpi.all_reduce(0, Qkw, 0)
+    if use_IBZ_symmetry: 
+      for wi in range(nw):
+        IBZ.copy_by_weak_symmetry(Qkw[wi,:,:], nk)
     return Qkw
 
   @staticmethod
-  def latt_inverse_FT(Qkw, beta, ntau, n_iw, nk, statistic='Fermion'):
+  def latt_inverse_FT(Qkw, beta, ntau, n_iw, nk, statistic='Fermion', use_IBZ_symmetry = True):
     Qktau = numpy.zeros((ntau,nk,nk), dtype=numpy.complex_)
     g = GfImFreq(indices = [0], beta = beta, n_points = n_iw, statistic=statistic)
     gtau = GfImTime(indices = [0], beta = beta, n_points = ntau, statistic=statistic)
     nw = len(g.data[:,0,0])
     counter = -1
-    for kxi in range(nk):
-      for kyi in range(nk):
+    if use_IBZ_symmetry: max_kxi = nk/2+1
+    else: max_kxi = nk
+    for kxi in range(max_kxi):
+      if use_IBZ_symmetry: max_kyi = nk/2+1
+      else: max_kyi = nk
+      for kyi in range(max_kyi):
         counter += 1 
         if counter % mpi.size != mpi.rank: continue
         for wi in range(nw):
@@ -185,6 +196,9 @@ class mats_freq:
         for taui in range(ntau):   
           Qktau[taui,kxi,kyi] = gtau.data[taui,0,0]
     Qktau[:,:,:] = mpi.all_reduce(0, Qktau, 0)
+    if use_IBZ_symmetry: 
+      for taui in range(ntau):
+        IBZ.copy_by_weak_symmetry(Qktau[taui,:,:], nk)
     return Qktau
 
 def block_latt_FT(Qktau, beta, ntau, n_iw, nk, statistic='Fermion'):
@@ -251,7 +265,7 @@ class IBZ:
 
   @staticmethod
   def copy_by_symmetry(Q, nk):
-    assert nk%2 == 0, "copy_by_IBZ_symmetry: nk must be even"
+    assert nk%2 == 0, "copy_by_symmetry: nk must be even"
     for kxi in range(nk/2+1): 
       for kyi in range(kxi+1):
          #mirror
@@ -262,6 +276,17 @@ class IBZ:
          #rotate
          Q[-kyi,kxi] = Q[kxi,kyi]
          Q[kyi,-kxi] = Q[kxi,kyi]
+         Q[-kxi,-kyi] = Q[kxi,kyi]
+
+  @staticmethod
+  def copy_by_weak_symmetry(Q, nk):
+    assert nk%2 == 0, "copy_by_weak_symmetry: nk must be even"
+    for kxi in range(nk/2+1): 
+      for kyi in range(nk/2+1):
+         if (kxi == 0 and kyi==0) or (kxi == nk/2 and kyi==nk/2): continue
+         #rotate
+         Q[-kxi,kyi] = Q[kxi,kyi]
+         Q[kxi,-kyi] = Q[kxi,kyi]
          Q[-kxi,-kyi] = Q[kxi,kyi]
 
 #--------------------------------------------------------------------------#
@@ -600,9 +625,10 @@ class bosonic_data(basic_data):
       IBZ.resample(self.Jq[A], Jq_new, self.qs, qs_new)
       self.Jq[A] = copy.deepcopy(Jq_new)
       for key in self.non_local_bosonic_gfs:
-        g = numpy.zeros((self.nnu, n_q_new, n_q_new),dtype=numpy.complex_)
-        for nui in range(self.nnu):
-          IBZ.resample(vars(self)[key][A][nui,:,:], g[nui,:,:], self.qs, qs_new)
+        npoints = len(vars(self)[key][A][:,0,0])
+        g = numpy.zeros((npoints, n_q_new, n_q_new),dtype=numpy.complex_)
+        for i in range(npoints):
+          IBZ.resample(vars(self)[key][A][i,:,:], g[i,:,:], self.qs, qs_new)
         vars(self)[key][A] = copy.deepcopy(g)
     self.qs = copy.deepcopy(qs_new)
     self.n_q = n_q_new
@@ -616,12 +642,12 @@ class bosonic_data(basic_data):
     gtaus = []
     for A in self.bosonic_struct.keys():
       gs.append ( GfImFreq(indices = self.bosonic_struct[A], beta = beta_new, n_points = n_iw_new, statistic = 'Boson') )
-      gtaus.append ( GfImFreq(indices = self.bosonic_struct[A], beta = beta_new, n_points = ntau_new, statistic = 'Boson') )
+      gtaus.append ( GfImTime(indices = self.bosonic_struct[A], beta = beta_new, n_points = ntau_new, statistic = 'Boson') )
     bgf = BlockGf(name_list = self.bosonic_struct.keys(), block_list = gs, make_copies = False)
-    bgftau = BlockGf(name_list = self.bosonic_struct.keys(), block_list = gs, make_copies = False)
+    bgftau = BlockGf(name_list = self.bosonic_struct.keys(), block_list = gtaus, make_copies = False)
     nus_new = [nu.imag for nu in gs[0].mesh] 
     for key in self.local_bosonic_gfs:
-      if len(vars(self)[key][bosonic_struct.keys()[0]].data[:,0,0])==self.ntau:
+      if len(vars(self)[key][self.bosonic_struct.keys()[0]].data[:,0,0])==self.ntau:
         vars(self)[key] = copy.deepcopy(bgftau) #no need to interpolate the time dependent quantities, just change size                  
         continue
       for A in self.bosonic_struct.keys():
@@ -642,7 +668,7 @@ class bosonic_data(basic_data):
     self.inus = [ 1j*nu for nu in nus_new ]
     if finalize: 
       self.beta = beta_new
-      self.n_iw = n_iw
+      self.n_iw = n_iw_new
       self.ntau = ntau_new
 #------------------------ fermionic data --------------------------------#
 from impurity_solvers import prepare_G0_iw
@@ -783,13 +809,12 @@ class fermionic_data(basic_data):
       epsilonk_new = numpy.zeros((n_k_new,n_k_new),dtype=numpy.complex_)
       IBZ.resample(self.epsilonk[U], epsilonk_new, self.ks, ks_new)
       self.epsilonk[U] = copy.deepcopy(epsilonk_new)
-
       for key in self.non_local_fermionic_gfs:
-        g = numpy.zeros((self.nw, n_k_new, n_k_new),dtype=numpy.complex_)
-        for wi in range(self.nw):
-          IBZ.resample(vars(self)[key][U][wi,:,:], g[wi,:,:], self.ks, ks_new)
+        npoints = len(vars(self)[key][U][:,0,0])
+        g = numpy.zeros((npoints, n_k_new, n_k_new),dtype=numpy.complex_)
+        for i in range(npoints):
+          IBZ.resample(vars(self)[key][U][i,:,:], g[i,:,:], self.ks, ks_new)
         vars(self)[key][U] = copy.deepcopy(g)
-
     self.ks = copy.deepcopy(ks_new)
     self.n_k = n_k_new
 
@@ -797,17 +822,21 @@ class fermionic_data(basic_data):
     if n_iw_new is None: n_iw_new = self.n_iw
     nw_new = n_iw_new*2
     ntau_new = 5*n_iw_new 
+    print "change_beta: ntau_new: ", ntau_new 
     gs = []
     gtaus = []
     for U in self.fermionic_struct.keys():
       gs.append ( GfImFreq(indices = self.fermionic_struct[U], beta = beta_new, n_points = n_iw_new, statistic = 'Fermion') )
       gtaus.append ( GfImTime(indices = self.fermionic_struct[U], beta = beta_new, n_points = ntau_new, statistic = 'Fermion') )
+    print "len(gtaus[0]['up'].data[:,0,0])" ,  len(gtaus[0].data[:,0,0])
     bgf = BlockGf(name_list = self.fermionic_struct.keys(), block_list = gs, make_copies = False)
     bgftau = BlockGf(name_list = self.fermionic_struct.keys(), block_list = gtaus, make_copies = False)
     ws_new = [w.imag for w in gs[0].mesh] 
     for key in self.local_fermionic_gfs:  
-      if len(vars(self)[key][fermionic_struct.keys()[0]].data[:,0,0])==self.ntau:
-        vars(self)[key] = copy.deepcopy(bgftau) #no need to interpolate the time dependent quantities, just change size                  
+      print "self.ntau: ", self.ntau
+      print "old length: ", key, len(vars(self)[key][self.fermionic_struct.keys()[0]].data[:,0,0])
+      if len(vars(self)[key][self.fermionic_struct.keys()[0]].data[:,0,0])==self.ntau:
+        vars(self)[key] = bgftau.copy() #no need to interpolate the time dependent quantities, just change size                  
         continue
       for U in self.fermionic_struct.keys():       
         mats_freq.change_temperature_gf(vars(self)[key][U], bgf[U])
@@ -854,10 +883,7 @@ class edmft_data(fermionic_data, bosonic_data):
 
   def change_beta(self, beta_new, n_iw_new=None, finalize = True):
     fermionic_data.change_beta(self, beta_new, n_iw_new, finalize = False)
-    bosonic_data.change_beta(self, beta_new, n_iw_new, finalize = False)
-    if finalize: 
-      self.beta = beta_new
-      if not (n_iw_new is None): self.n_iw = n_iw_new
+    bosonic_data.change_beta(self, beta_new, n_iw_new, finalize = finalize)
 
   def load_initial_guess_from_file(self, archive_name, suffix=''):
     fermionic_data.load_initial_guess_from_file(self, archive_name, suffix)
@@ -899,7 +925,11 @@ class GW_data(edmft_data):
     self.P_loc_tau = BlockGf(name_list = self.bosonic_struct.keys(), block_list = gs, make_copies = True)
     self.W_loc_dyn_tau = BlockGf(name_list = self.bosonic_struct.keys(), block_list = gs, make_copies = True)  
 
-    self.local_quantities.extend(['Sigma_loc_tau','G_loc_tau','P_loc_tau','W_loc_dyn_tau'])
+    new_fermionic_local_gfs = ['Sigma_loc_tau','G_loc_tau']
+    new_bosonic_local_gfs = ['P_loc_tau','W_loc_dyn_tau']
+    self.local_fermionic_gfs.extend(new_fermionic_local_gfs)
+    self.local_bosonic_gfs.extend(new_bosonic_local_gfs)
+    self.local_quantities.extend(new_fermionic_local_gfs + new_bosonic_local_gfs)
 
     self.Sigmakw = {}
     self.Sigmaktau = {}
@@ -1406,6 +1436,14 @@ class supercond_data(GW_data):
     self.non_local_bosonic_gfs.extend( new_bosonic )
     self.non_local_quantities.extend( new_fermionic + new_bosonic )
 
+  def change_ks(self, ks_new):
+    n_k_new = len(ks_new)
+    for U in self.fermionic_struct.keys():
+      hsck_new = numpy.zeros((n_k_new,n_k_new),dtype=numpy.complex_)
+      IBZ.resample(self.hsck[U], hsck_new, self.ks, ks_new)
+      self.hsck[U] = copy.deepcopy(hsck_new)
+    GW_data.change_ks(self,ks_new) 
+
   def get_Gkw(self):
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: dyson.superconducting.G_from_Sigma_G0_and_X(self.Sigmakw[U][i,kx,ky], self.G0kw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
 
@@ -1421,7 +1459,7 @@ class supercond_data(GW_data):
   def get_Fkw_direct(self):
     self.get_k_dependent(self.Fkw, lambda U,i,kx,ky: dyson.superconducting.F_from_w_mu_epsilon_Sigma_and_X(self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
 
-  def get_Xkw(self, imtime = False, simple = False, use_IBZ_symmetry = True, ising_decoupling=False, su2_symmetry=True, wi_list = [],  Lambda = lambda A, wi, nui: 1.0):
+  def get_Xkw(self, imtime = False, simple = False, use_IBZ_symmetry = False, ising_decoupling=False, su2_symmetry=True, wi_list = [],  Lambda = lambda A, wi, nui: 1.0):
     assert self.n_k == self.n_q, "ERROR: for bubble calcuation it is necessary that bosonic and fermionic quantities have the same discretization of IBZ"
     if not imtime:
       bubble.full.Sigma\
@@ -1434,8 +1472,8 @@ class supercond_data(GW_data):
                                     beta=self.beta,
                                     nw1 = self.nw, nw2 = self.nnu,  
                                     nk=self.n_k, wi1_list = wi_list,                             
-                                    freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2), 
-                                    func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=use_IBZ_symmetry)\
+                                    freq_sum = lambda wi1, wi2: wi1 + self.m_from_nui(wi2),    #not the full symmetry of IBZ!!!! make this symmetries passable such that one can use reduced symmetry here  
+                                    func = bubble.ksum.FT if not simple else partial(bubble.ksum.simple, use_IBZ_symmetry=False)\
                                 ),
                   su2_symmetry=su2_symmetry, ising_decoupling=ising_decoupling, p = {'0': -1.0, '1': 1.0} )
     else:
