@@ -822,19 +822,19 @@ class fermionic_data(basic_data):
     if n_iw_new is None: n_iw_new = self.n_iw
     nw_new = n_iw_new*2
     ntau_new = 5*n_iw_new 
-    print "change_beta: ntau_new: ", ntau_new 
+    #print "change_beta: ntau_new: ", ntau_new 
     gs = []
     gtaus = []
     for U in self.fermionic_struct.keys():
       gs.append ( GfImFreq(indices = self.fermionic_struct[U], beta = beta_new, n_points = n_iw_new, statistic = 'Fermion') )
       gtaus.append ( GfImTime(indices = self.fermionic_struct[U], beta = beta_new, n_points = ntau_new, statistic = 'Fermion') )
-    print "len(gtaus[0]['up'].data[:,0,0])" ,  len(gtaus[0].data[:,0,0])
+    #print "len(gtaus[0]['up'].data[:,0,0])" ,  len(gtaus[0].data[:,0,0])
     bgf = BlockGf(name_list = self.fermionic_struct.keys(), block_list = gs, make_copies = False)
     bgftau = BlockGf(name_list = self.fermionic_struct.keys(), block_list = gtaus, make_copies = False)
     ws_new = [w.imag for w in gs[0].mesh] 
     for key in self.local_fermionic_gfs:  
-      print "self.ntau: ", self.ntau
-      print "old length: ", key, len(vars(self)[key][self.fermionic_struct.keys()[0]].data[:,0,0])
+      #print "self.ntau: ", self.ntau
+      #print "old length: ", key, len(vars(self)[key][self.fermionic_struct.keys()[0]].data[:,0,0])
       if len(vars(self)[key][self.fermionic_struct.keys()[0]].data[:,0,0])==self.ntau:
         vars(self)[key] = bgftau.copy() #no need to interpolate the time dependent quantities, just change size                  
         continue
