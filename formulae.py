@@ -193,22 +193,24 @@ class bubble:
     @staticmethod
     def non_local(  beta,
                     ntau, nk, taui_list = [],
-                    G1 = lambda taui, kxi, kyi: 0.0,   G2 = lambda taui, kxi, kyi: 0.0,  Lambda = lambda wi1, wi2: 1.0 ):      
+                    G1 = lambda taui, kxi, kyi: 0.0,   G2 = lambda taui, kxi, kyi: 0.0,  Lambda = lambda wi1, wi2: 1.0,
+                    func = None, fermionic_G2 = False ):      
       res = numpy.zeros((ntau,nk,nk), dtype=numpy.complex_) 
       for taui in range(ntau):
         if taui % mpi.size != mpi.rank: continue       
-        res[taui,:,:] += Lambda(0,0) * func(nk = nk,  G1 = lambda kxi, kyi: G1(taui,kxi,kyi), G2 = lambda kxi, kyi: G2(taui,kxi,kyi))
+        res[taui,:,:] += Lambda(0,0) * func(nk = nk,  G1 = lambda kxi, kyi: G1(taui,kxi,kyi), G2 = lambda kxi, kyi: G2(-1-taui,kxi,kyi))
       res[:,:,:] = mpi.all_reduce(0, res, 0)       
       return res
 
     @staticmethod
     def local    (  beta,
                     ntau, taui_list = [],
-                    G1 = lambda taui: 0.0,   G2 = lambda taui: 0.0,  Lambda = lambda wi1, wi2: 1.0 ): 
+                    G1 = lambda taui: 0.0,   G2 = lambda taui: 0.0,  Lambda = lambda wi1, wi2: 1.0,
+                    fermionic_G2 = False ): 
       res = numpy.zeros((ntau), dtype=numpy.complex_) 
       for taui in range(ntau):
         if taui % mpi.size != mpi.rank: continue      
-        res[taui] += Lambda(0, 0) * G1(taui) * G2(taui)
+        res[taui] += Lambda(0, 0) * G1(taui) * G2(-1-taui)
       res[:] = mpi.all_reduce(0, res, 0)    
       return res
 
@@ -255,16 +257,18 @@ class bubble:
     def Sigma( fermionic_struct, bosonic_struct, 
                Sigma, G, W, Lambda, 
                func,
-               su2_symmetry, ising_decoupling, p = {'0': 1.0, '1': 1.0} ):
+               su2_symmetry, ising_decoupling, 
+               p = {'0': 1.0, '1': 1.0},
+               overwrite = True ):
       for U in fermionic_struct.keys():
         if su2_symmetry and U!='up': continue      
-        Sigma[U].fill(0.0) 
+        if overwrite: Sigma[U].fill(0.0) 
         for V in fermionic_struct.keys():            
           for A in bosonic_struct.keys():     
             if (U!=V and A!='+-')or((U==V)and(A=='+-')): continue
             m = -1.0
             if (A=='1' or A=='z') and (not ising_decoupling): m*=3.0
-            Sigma[U] += p[A] * m * func( G1 = partial(G, key=V),   G2 = partial(W, key=A),  Lambda = lambda wi1, wi2: Lambda(A, wi1, wi2)  )
+            Sigma[U] += p[A] * m * ( func( G1 = partial(G, key=V),   G2 = partial(W, key=A),  Lambda = lambda wi1, wi2: Lambda(A, wi1, wi2)  ) )
       if su2_symmetry and ('down' in fermionic_struct.keys()): 
         Sigma['down'] = copy.deepcopy(Sigma['up'])
 

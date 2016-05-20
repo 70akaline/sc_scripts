@@ -149,6 +149,15 @@ class solvers:
 
 ################################ PREPARERS (from Uweiss to CTHYB parameters) #########################################
 
+def fit_fermionic_gf_tail(Q, starting_iw=14.0):
+  known_coeff = TailGf(1,1,3,-1)
+  known_coeff[-1] = array([[0.]])
+  known_coeff[0] = array([[0.]])
+  known_coeff[1] = array([[1.]])
+  nmax = Q.mesh.last_index()
+  nmin = int(((starting_iw*Q.beta)/math.pi-1.0)/2.0) 
+  Q.fit_tail(known_coeff,5,nmin,nmax)
+
 def fit_and_remove_constant_tail(Q, starting_iw=14.0):
   known_coeff = TailGf(1,1,1,-1)
   known_coeff[-1] = array([[0.]])
@@ -215,7 +224,6 @@ def extract_Sigma_from_F_and_G(Sigma_iw, F_iw, G_iw):
 
 def extract_Sigma_from_G0_and_G(Sigma_iw, G0_iw, G_iw):
   Sigma_iw << inverse(G0_iw) - inverse(G_iw)
-
 
 def fit_and_overwrite_tails_on_Sigma(Sigma_iw, starting_iw=14.0):
   fixed_coeff = TailGf(1,1,1,-1)
