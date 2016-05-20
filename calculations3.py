@@ -269,10 +269,8 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     mpi.barrier()
     #run dmft!-------------
     err = dmft.run( dt,
-                    n_loops_max=2, 
-                    n_loops_min=0,
-                    #n_loops_max=n_loops_max, 
-                    #n_loops_min=n_loops_min,
+                    n_loops_max=n_loops_max, 
+                    n_loops_min=n_loops_min,
                     print_three_leg=1, print_non_local=1,
                     skip_self_energy_on_first_iteration=True,
                     last_iteration_err_is_allowed = 18 )
