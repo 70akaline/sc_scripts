@@ -39,10 +39,16 @@ def pm_tUV_trilex_calculation( T,
   if mpi.is_master_node(): print "WELCOME TO PM tUV trilex calculation!"
 
   bosonic_struct = {'0': [0], '1': [0]}    
-  if alpha==2.0/3.0:
-    del bosonic_struct['1']
-  if alpha==1.0/3.0:
-    del bosonic_struct['0']
+  if not ising:
+    if alpha==2.0/3.0:
+      del bosonic_struct['1']
+    if alpha==1.0/3.0:
+      del bosonic_struct['0']
+  else:
+    if alpha==1.0:
+      del vks['1']
+    if alpha==0.0:
+      del vks['0']
 
   fermionic_struct = {'up': [0], 'down': [0]}
 
