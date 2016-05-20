@@ -29,7 +29,8 @@ from impurity_solvers import *
 
 #--------------------------- supercond Hubbard model---------------------------------#
 def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01], 
-                            mutildes=[0.0, 0.2, 0.4, 0.6, 0.8], 
+                            mutildes=[0.0, 0.2, 0.4, 0.6, 0.8],
+                            ns = [0.5,0.53,0.55,0.57,0.6], fixed_n = False,   
                             ts=[0.25], t_dispersion = epsilonk_square,
                             Us = [1.0,2.0,3.0,4.0], alpha=2.0/3.0,
                             hs = [0],  
@@ -37,7 +38,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             n_ks = [24], 
                             w_cutoff = 20.0,
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
-                            trilex = False,
+                            trilex = False, imtime = True,
                             use_cthyb=True, n_cycles=100000, max_time=10*60, accuracy = 1e-4,
                             initial_guess_archive_name = '', suffix=''):
   if mpi.is_master_node(): print "WELCOME TO supercond hubbard calculation!"
@@ -74,8 +75,11 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
   else:
     solver = None
 
+
+  assert not( imtime and trilex ), "imtime bubbles inapplicable in trilex"
   #init data, assign the solver to it
   dt = supercond_data( n_iw = n_iw, 
+                       ntau = (None if (imtime) else 3 ), #no need to waste memory on tau-dependent quantities unless we're going to use them (None means ntau=n_iw*5)
                        n_k = n_k,
                        n_q = n_q, 
                        beta = beta, 
@@ -86,6 +90,14 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
   if trilex:
     dt.__class__=supercond_trilex_data
     dt.promote(dt.n_iw/2, dt.n_iw/2)
+
+  if imtime:
+    dt.get_Sigmakw = partial(dt.get_Sigmakw, imtime = True)
+    dt.get_Xkw = partial(dt.get_Xkw, imtime = True)
+    dt.get_Pqnu = partial(dt.get_Pqnu, imtime = True)
+    dt.get_Sigma_loc_from_local_bubble = partial(dt.get_P_loc_from_local_bubble, imtime = True)
+    dt.get_P_loc_from_local_bubble = partial(dt.get_P_loc_from_local_bubble, imtime = True)
+   
 
   #init convergence and cautionary measures
   convergers = [ converger( monitored_quantity = lambda: dt.P_loc_iw,
@@ -101,7 +113,11 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
 
   #initial guess
   
-  ps = itertools.product(n_ks,ts,mutildes,Us,Ts,hs)
+  assert not(trilex and fixed_n)
+  if fixed_n:
+    ps = itertools.product(n_ks,ts,ns,Us,Ts,hs)
+  else:
+    ps = itertools.product(n_ks,ts,mutildes,Us,Ts,hs)
 
   counter = 0
   old_nk = n_k
@@ -109,7 +125,11 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
 
   for p in ps:    
     #name stuff to avoid confusion   
-    mutilde = p[2]
+    if fixed_n:
+      n = p[2]
+    else:
+      mutilde = p[2]
+      n = None
     t = p[1]
     U = p[3]
     nk = p[0]
@@ -137,11 +157,18 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                      n_w = n_iw )
       old_beta = beta
 
-
-    if trilex:
-      dt.archive_name="T%s.nk%s.h5"%(T,nk)
-    else:
-      dt.archive_name="T%s.nk%s.h5"%(T,nk)
+    filename = "result"
+    if len(n_ks)>1: filename += ".nk%s"%nk
+    if len(ts)>1: filename += ".t%s"%t
+    if len(ns)>1 and fixed_n: 
+      filename += ".n%s"%n
+    if len(mutildes)>1 and not fixed_n:
+      filename += ".mutilde%s"%n      
+    if len(Us)>1: filename += ".U%s"%U
+    if len(Ts)>1: filename += ".T%s"%T
+    if len(hs)>1: filename += ".h%s"%h
+    filename += ".h5"
+    dt.archive_name = filename
     for conv in convergers:
       conv.archive_name = dt.archive_name
 
@@ -159,13 +186,13 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     if trilex: 
       preset = supercond_trilex_hubbard(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct)
     else:
-      if frozen_boson and (T!=Ts[0]):
-        preset = supercond_hubbard(frozen_boson=True, refresh_X=refresh_X)
-      else:
-        preset = supercond_hubbard(frozen_boson=False, refresh_X=refresh_X)
+      preset = supercond_hubbard(frozen_boson=(frozen_boson if (T!=Ts[0]) else False), refresh_X=refresh_X, n = n)
 
     if mpi.is_master_node():
-      print "U = ",U," alpha= ",alpha, "Uch= ",Uch," Usp=",Usp," mutilde= ",mutilde
+      if fixed_n:
+        print "U = ",U," alpha= ",alpha, "Uch= ",Uch," Usp=",Usp," n= ",n
+      else:
+        print "U = ",U," alpha= ",alpha, "Uch= ",Uch," Usp=",Usp," mutilde= ",mutilde
       #print "cautionary safe values: ",preset.cautionary.safe_value    
 
     if trilex:
@@ -189,6 +216,13 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                       rules=rules,
                       func=mixer.mix_gf)  ]
 
+    monitors = [ monitor( monitored_quantity = lambda: dt.ns['up'], 
+                          h5key = 'n_vs_it', 
+                          archive_name = dt.archive_name),
+                 monitor( monitored_quantity = lambda: dt.mus['up'], 
+                          h5key = 'mu_vs_it', 
+                          archive_name = dt.archive_name) ]
+
     #init the dmft_loop 
     dmft = dmft_loop(  cautionary       = preset.cautionary, 
                        lattice          = preset.lattice,
@@ -198,6 +232,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                        selfenergy       = preset.selfenergy, 
                        convergers       = convergers,
                        mixers           = mixers,
+                       monitors		= monitors, 
                        after_it_is_done = preset.after_it_is_done )
 
     #dt.get_G0kw( func = dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma) )  
@@ -208,7 +243,11 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       for U in fermionic_struct.keys(): dt.Sigmakw[U].fill(0)
       for U in fermionic_struct.keys(): dt.Xkw[U].fill(0)
     if (T==Ts[0]) and not trilex: #do this only once!         
-      dt.mus['up'] = mutilde
+      if not fixed_n:
+        dt.mus['up'] = mutilde
+      else:
+        dt.mus['up'] = 0.0
+      if 'down' in dt.fermionic_struct.keys(): dt.mus['down'] = dt.mus['up']   #this is not necessary at the moment, but may become
       dt.P_imp_iw << 0.0    
       dt.Sigma_loc_iw << 0.0 #making sure that in the first iteration the impurity problem is half-filled. if not solving impurity problem, not needed
       for U in fermionic_struct.keys(): dt.Sigmakw[U].fill(0)

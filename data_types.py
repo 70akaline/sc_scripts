@@ -148,11 +148,11 @@ class mats_freq:
 
   @staticmethod
   def latt_FT(Qktau, beta, ntau, n_iw, nk, statistic='Fermion'):
-    print "ntau: ", ntau
+    #print "ntau: ", ntau
     g = GfImFreq(indices = [0], beta = beta, n_points = n_iw, statistic=statistic)
     gtau = GfImTime(indices = [0], beta = beta, n_points = ntau, statistic=statistic)
-    print "len(gta.data[:,0,0]): ", len(gtau.data[:,0,0])
-    print "len(Qktau[:,kxi,kyi]): ",len(Qktau[:,0,0])
+    #print "len(gta.data[:,0,0]): ", len(gtau.data[:,0,0])
+    #print "len(Qktau[:,kxi,kyi]): ",len(Qktau[:,0,0])
     nw = len(g.data[:,0,0])
     Qkw = numpy.zeros((nw,nk,nk), dtype=numpy.complex_)
     counter = -1

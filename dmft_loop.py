@@ -36,6 +36,7 @@ class dmft_loop:
                      selfenergy = dummy, 
                      convergers = [],
                      mixers = [], 
+                     monitors = [],
                      after_it_is_done = None):
     self.cautionary = cautionary
     self.lattice = lattice
@@ -45,6 +46,7 @@ class dmft_loop:
     self.selfenergy = selfenergy
     self.convergers = convergers
     self.mixers = mixers        
+    self.monitors = monitors     
     self.after_it_is_done = after_it_is_done 
 
   def run(self, data, 
@@ -56,6 +58,9 @@ class dmft_loop:
       mixer.get_initial()
     for conv in self.convergers:
       conv.reset()
+    for monitor in self.monitors:
+      monitor.reset()
+
     if not (self.cautionary is None):
       self.cautionary.reset() 
 
@@ -97,6 +102,9 @@ class dmft_loop:
       if not converged:
         for mixer in self.mixers:
           mixer.mix(loop_index)
+
+      for monitor in self.monitors:
+        monitor.monitor()
 
       if mpi.is_master_node():
         data.dump_errors(suffix='-%s'%loop_index)
@@ -215,3 +223,26 @@ class converger:
             if diff>max_diff:
               max_diff=diff
     self.diffs.append(max_diff)         
+
+class monitor:
+  def __init__(self, monitored_quantity, h5key, func=None, struct=None, archive_name=None):
+    #monitored quantity needs to be a function returning an object in case the object is rewritten (changed address)
+    self.mq = monitored_quantity
+    self.h5key = h5key
+
+    self.func = func
+
+    self.archive_name = archive_name
+    self.struct = struct
+
+  def reset(self):
+    self.values = []
+
+  def monitor(self):
+    self.values.append(copy.deepcopy(self.mq()))    
+    if mpi.is_master_node() and (not (self.archive_name is None)):
+      A = HDFArchive(self.archive_name)
+      A[self.h5key] = self.values
+      del A
+      print "monitor: ",self.h5key," : ", self.values[-1]
+
