@@ -16,7 +16,7 @@ import pytriqs.utility.mpi as mpi
 #from selfconsistency.useful_functions import adjust_n_points
 #from selfconsistency.provenance import hash_dict
 
-
+from amoeba import amoeba
 from impurity_solvers import *
 from data_types import *
 import formulae
@@ -389,11 +389,17 @@ class edmft_tUVJ_pm:
 #--------------------GW Hubbard pm---------------------------------------#
 
 class GW_hubbard_pm:
-  def __init__(self, mutilde, U, alpha, bosonic_struct): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
+  def __init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
     self.selfenergy = partial(self.selfenergy, mutilde=mutilde, U=U)
     #self.lattice = partial(GW.lattice, funcG = dyson.scalar.W_from_P_and_J, funcW = dyson.scalar.W_from_P_and_J)
-    self.lattice = partial(GW.lattice, funcG =  dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma), funcW =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J) )
-    self.pre_impurity = partial(self.pre_impurity, mutilde=mutilde, U=U, alpha=alpha)
+    if (n is None) or (n==0.5):
+      self.lattice = partial(GW.lattice, funcG =  dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma), funcW =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J) )
+    else:
+      self.lattice = partial(self.lattice, n = n, funcG =  dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma), funcW =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J) )
+    if n==0.5: 
+      mutilde = 0.0  
+      n = None
+    self.pre_impurity = partial(self.pre_impurity, mutilde=mutilde, U=U, alpha=alpha, ising = ising, n=n)
     self.cautionary = GW.cautionary()    
     self.post_impurity = edmft_tUVJ_pm.post_impurity
 
@@ -403,9 +409,47 @@ class GW_hubbard_pm:
 
     data.get_Sigmakw() #gets Sigmakw from Gkw and Wqnu
     data.get_Pqnu() #gets Pqnu from Gkw
+
+  @staticmethod
+  def lattice(data, funcG, funcW, n): #the only option - we need Gkw and Wqnu for self energy in the next iteration
+    #data.get_Gkw(funcG) #gets Gkw from G0 and Sigma
+    if (n == 0.5):
+      data.get_Gkw_direct(funcG) #gets Gkw from w, mu, epsilon and Sigma
+      data.get_G_loc() #gets G_loc from Gkw
+    else:
+      def func(var, data):
+        mu = var[0]
+        dt = data[0]
+        #print "func call! mu: ", mu, " n: ",dt.ns['up']
+        n= data[1] 
+        dt.mus['up'] = mu
+        dt.mus['down'] = dt.mus['up']
+        dt.get_Gkw_direct(funcG) #gets Gkw from w, mu, epsilon and Sigma and X
+        dt.get_G_loc() #gets G_loc from Gkw
+        dt.get_n_from_G_loc()     
+        #print "funcvalue: ",-abs(n - dt.ns['up'])  
+        return 1.0-abs(n - dt.ns['up'])  
+      mpi.barrier()
+      varbest, funcvalue, iterations = amoeba(var=[data.mus['up']],
+                                              scale=[0.01],
+                                              func=func, 
+                                              data = [data, n],
+                                              itmax=30,
+                                              ftolerance=1e-2,
+                                              xtolerance=1e-2)
+      if mpi.is_master_node():
+        print "mu best: ", varbest
+        print "-abs(diff n - data.n): ", funcvalue
+        print "iterations used: ", iterations
+
+    data.get_Gtildekw() #gets Gkw-G_loc
+
+    data.get_Wqnu_from_func(funcW) #gets Wqnu from P and J 
+    data.get_W_loc() #gets W_loc from Wqnu
+    data.get_Wtildeqnu() #gets Wqnu-W_loc, 
     
   @staticmethod 
-  def pre_impurity(data, mutilde, U, alpha):
+  def pre_impurity(data, mutilde, U, alpha, ising, n):
     data.get_Gweiss(func = dict.fromkeys(['up', 'down'], dyson.scalar.J_from_P_and_W) )
     data.get_Uweiss_from_W(func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.J_from_P_and_W) )
     
@@ -414,18 +458,22 @@ class GW_hubbard_pm:
       fit_and_remove_constant_tail(data.Uweiss_dyn_iw[A], starting_iw=14.0)     
     
     prepare_G0_iw(data.solver.G0_iw, data.Gweiss_iw, data.fermionic_struct)
-    if (alpha!=1.0/3.0): prepare_D0_iw(data.solver.D0_iw, data.Uweiss_dyn_iw, data.fermionic_struct, data.bosonic_struct)
+    if (alpha!=1.0/3.0 and not ising) or ising:
+      prepare_D0_iw(data.solver.D0_iw, data.Uweiss_dyn_iw, data.fermionic_struct, data.bosonic_struct)
     else: data.solver.D0_iw << 0.0
-    if (alpha!=2.0/3.0): prepare_Jperp_iw(data.solver.Jperp_iw, data.Uweiss_dyn_iw['1']*4.0) #Uweiss['1'] pertains to n^z n^z, while Jperp to S^zS^z = n^z n^z/4
+    if (alpha!=2.0/3.0 and not ising): #if ising no Jperp!
+      prepare_Jperp_iw(data.solver.Jperp_iw, data.Uweiss_dyn_iw['1']*4.0) #Uweiss['1'] pertains to n^z n^z, while Jperp to S^zS^z = n^z n^z/4
     else: data.solver.Jperp_iw << 0.0
 
     #adjust chemical potential
-    data.mus['up'] = U/2.0 + mutilde
-    if '0' in data.bosonic_struct.keys():
-       data.mus['up'] += data.Uweiss_dyn_iw['0'].data[data.nnu/2,0,0] #here (sum_sigma' D0_[sigma|sigma'])/2 = Uweiss['0']. The z channel does not contribute.
-    data.mus['down'] = data.mus['up']
+    if n is None:
+      data.mus['up'] = U/2.0 + mutilde
+      if '0' in data.bosonic_struct.keys():
+        data.mus['up'] += data.Uweiss_dyn_iw['0'].data[data.nnu/2,0,0] #here (sum_sigma' D0_[sigma|sigma'])/2 = Uweiss['0']. The z channel does not contribute.
+      data.mus['down'] = data.mus['up']
   
     data.U_inf = U
+
 
   @staticmethod 
   def after_it_is_done(data):
@@ -449,16 +497,11 @@ class GW_hubbard_pm:
 
 #--------------------trilex---------------------------------------#
 
-class trilex_hubbard_pm:
-  def __init__(self, mutilde, U, alpha, bosonic_struct): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
-    self.selfenergy = partial(GW_hubbard_pm.selfenergy, mutilde=mutilde, U=U)
-    #self.lattice = partial(GW.lattice, funcG = dyson.scalar.W_from_P_and_J, funcW = dyson.scalar.W_from_P_and_J)
-    self.lattice = partial( GW.lattice, 
-                              funcG =  dict.fromkeys( ['up', 'down'],        dyson.scalar.G_from_w_mu_epsilon_and_Sigma ),
-                              funcW =  dict.fromkeys( bosonic_struct.keys(), dyson.scalar.W_from_P_and_J                )   )
-    self.pre_impurity = partial(GW_hubbard_pm.pre_impurity, mutilde=mutilde, U=U, alpha=alpha)
-    self.cautionary = GW.cautionary()    
-    
+class trilex_hubbard_pm(GW_hubbard_pm):
+  def __init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
+    GW_hubbard_pm.__init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None) #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
+    self.post_impurity = self.__class__.post_impurity     
+
   @staticmethod 
   def post_impurity(data):
     edmft_tUVJ_pm.post_impurity(data)
@@ -473,10 +516,8 @@ class trilex_hubbard_pm:
     #data.get_P_test()
     #data.dump_test(suffix='-final') 
 
-
 #--------------------supercond hubbard model---------------------------------------#
 from formulae import X_dwave
-from amoeba import amoeba
 class supercond_hubbard:
   def __init__(self, frozen_boson=False, refresh_X = True, n = None):
     self.cautionary = self.cautionary(frozen_boson=frozen_boson, refresh_X=refresh_X)    

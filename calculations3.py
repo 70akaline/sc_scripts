@@ -163,7 +163,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     if len(ns)>1 and fixed_n: 
       filename += ".n%s"%n
     if len(mutildes)>1 and not fixed_n:
-      filename += ".mutilde%s"%n      
+      filename += ".mutilde%s"%mutilde      
     if len(Us)>1: filename += ".U%s"%U
     if len(Ts)>1: filename += ".T%s"%T
     if len(hs)>1: filename += ".h%s"%h

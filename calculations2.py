@@ -26,13 +26,16 @@ from impurity_solvers import *
 #--------------parameters fixed------------------#
 
 import itertools
-def pm_tUV_trilex_calculation( T, mutildes=[0.0], 
-                            ts=[0.25], t_dispersion = epsilonk_square,
-                            Us = [1.0], alpha=2.0/3.0,     
-                            Vs = [0.0], V_dispersion = Jq_square,                       
-                            n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
-                            use_cthyb=True, n_cycles=100000, max_time=10*60,
-                            initial_guess_archive_name = '', suffix=''):
+def pm_tUV_trilex_calculation( T, 
+                               mutildes=[0.0], 
+                               ns = [0.5, 0.53, 0.55, 0.57], fixed_n = False,
+                               ts=[0.25], t_dispersion = epsilonk_square,
+                               Us = [1.0], alpha=2.0/3.0, ising = False,    
+                               Vs = [0.0], V_dispersion = Jq_square,       
+                               nk = 24,                
+                               n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
+                               use_cthyb=True, n_cycles=100000, max_time=10*60,
+                               initial_guess_archive_name = '', suffix=''):
   if mpi.is_master_node(): print "WELCOME TO PM tUV trilex calculation!"
 
   bosonic_struct = {'0': [0], '1': [0]}    
@@ -50,7 +53,7 @@ def pm_tUV_trilex_calculation( T, mutildes=[0.0],
     print "PM HUBBARD GW: n_iw: ",n_iw
   n_tau = int(n_iw*pi)
 
-  n_q = 24
+  n_q = nk
   n_k = n_q
 
   #init solver
@@ -64,8 +67,6 @@ def pm_tUV_trilex_calculation( T, mutildes=[0.0],
                      n_w_b_nn = n_iw,
                      n_w = n_iw )
 
-
-
   #init data, assign the solver to it
   dt = trilex_data( n_iw = n_iw,
                     n_iw_f = n_iw/2, 
@@ -77,6 +78,10 @@ def pm_tUV_trilex_calculation( T, mutildes=[0.0],
                     bosonic_struct = bosonic_struct,
                     fermionic_struct = fermionic_struct,
                     archive_name="so_far_nothing_you_shouldnt_see_this_file" )
+
+  if ising:
+    dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True )
+    dt.get_Pqnu = partial(dt.get_Pqnu, ising_decoupling = True )
 
   #init convergence and cautionary measures
   convergers = [ converger( monitored_quantity = lambda: dt.P_imp_iw,
@@ -97,21 +102,36 @@ def pm_tUV_trilex_calculation( T, mutildes=[0.0],
                     rules=rules,
                     func=mixer.mix_gf)  ]
 
+  monitors = [ monitor( monitored_quantity = lambda: dt.ns['up'], 
+                          h5key = 'n_vs_it', 
+                          archive_name = dt.archive_name),
+               monitor( monitored_quantity = lambda: dt.mus['up'], 
+                          h5key = 'mu_vs_it', 
+                          archive_name = dt.archive_name) ]
+
   err = 0
   #initial guess
-  
-  ps = itertools.product(mutildes,ts,Us,Vs)
+  if fixed_n:
+    ps = itertools.product(ns,ts,Us,Vs)
+  else:
+    ps = itertools.product(mutildes,ts,Us,Vs)
 
   counter = 0
   for p in ps:    
     #name stuff to avoid confusion   
-    mutilde = p[0]
+    if fixed_n:
+      n = p[0]
+      mutilde = 0.0
+    else:
+      mutilde = p[0]
+      n = None
     t = p[1]
     U = p[2]
     V = p[3]
 
     filename = "result"
-    if len(mutildes)>1: filename += ".mutilde%s"%mutilde
+    if len(mutildes)>1 and not fixed_n: filename += ".mutilde%s"%mutilde
+    if len(ns)>1 and fixed_n: filename += ".n%s"%n
     if len(ts)>1: filename += ".t%s"%t
     if len(Us)>1: filename += ".U%s"%U
     if len(Vs)>1: filename += ".V%s"%V
@@ -121,18 +141,29 @@ def pm_tUV_trilex_calculation( T, mutildes=[0.0],
     for conv in convergers:
       conv.archive_name = dt.archive_name
 
-    Uch = (3.0*alpha-1.0)*U
-    Usp = (alpha-2.0/3.0)*U
+    if not ising:
+      Uch = (3.0*alpha-1.0)*U
+      Usp = (alpha-2.0/3.0)*U
+    else:
+      Uch = alpha*U
+      Usp = (alpha-1.0)*U
+
     vks = {'0': lambda kx,ky: Uch + V_dispersion(kx,ky,J=V), '1': lambda kx,ky: Usp}
-    if alpha==2.0/3.0:
-      del vks['1']
-    if alpha==1.0/3.0:
-      del vks['0']
+    if not ising:
+      if alpha==2.0/3.0:
+        del vks['1']
+      if alpha==1.0/3.0:
+        del vks['0']
+    else:
+      if alpha==1.0:
+        del vks['1']
+      if alpha==0.0:
+        del vks['0']
     
     dt.fill_in_Jq( vks )  
     dt.fill_in_epsilonk(dict.fromkeys(['up','down'], partial(t_dispersion, t=t)))
 
-    preset = trilex_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct)
+    preset = trilex_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct, ising = ising, n=n)
 
     #preset.cautionary.get_safe_values(dt.Jq, dt.bosonic_struct, n_q, n_q)
     if mpi.is_master_node():
