@@ -190,7 +190,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       preset = supercond_hubbard(frozen_boson=(frozen_boson if (T!=Ts[0]) else False), refresh_X=refresh_X, n = n)
 
     if refresh_X:
-      preset.refresh_X = partial(preset.refresh_X, strength=strength, max_it=max_it)
+      preset.cautionary.refresh_X = partial(preset.cautionary.refresh_X, strength=strength, max_it=max_it)
 
     if mpi.is_master_node():
       if fixed_n:
