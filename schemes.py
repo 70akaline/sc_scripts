@@ -545,7 +545,7 @@ class supercond_hubbard:
       edmft.cautionary.reset(self)
       self.it_counter = 0
 
-    def refresh_X(data, max_it = 10, strength = 5.0):
+    def refresh_X(self, data, max_it = 10, strength = 5.0):
       if self.it_counter < max_it:
         for U in data.fermionic_struct.keys():
           for wi in [data.nw/2-1, data.nw/2]:#range(data.nw):
