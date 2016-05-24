@@ -583,7 +583,10 @@ class supercond_hubbard:
 
   @staticmethod 
   def lattice(data, frozen_boson, n):
-    if n is None:
+    if (n is None) or (n==0.5):
+      if n==0.5: 
+        data.mus['up'] = 0
+        if 'down' in dt.fermionic_struct.keys(): dt.mus['down'] = dt.mus['up']  
       data.get_Gkw_direct() #gets Gkw from w, mu, epsilon and Sigma and X
       data.get_Fkw_direct() #gets Fkw from w, mu, epsilon and Sigma and X
       data.get_G_loc() #gets G_loc from Gkw
