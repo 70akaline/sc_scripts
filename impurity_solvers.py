@@ -109,7 +109,7 @@ class solvers:
            n_w_b_vertex = n_w_b,
            keep_Jperp_negative = True,
           )
-
+ 
         data.G_imp_iw << data.solver.G_iw   
         if symmetrize_quantities:  
           symmetrize_blockgf(data.G_imp_iw, data.fermionic_struct)

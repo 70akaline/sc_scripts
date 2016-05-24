@@ -34,7 +34,8 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             ts=[0.25], t_dispersion = epsilonk_square,
                             Us = [1.0,2.0,3.0,4.0], alpha=2.0/3.0,
                             hs = [0],  
-                            frozen_boson = False, refresh_X = True,
+                            frozen_boson = False, 
+                            refresh_X = True, strength = 5.0, max_it = 10,
                             n_ks = [24], 
                             w_cutoff = 20.0,
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
@@ -188,6 +189,9 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     else:
       preset = supercond_hubbard(frozen_boson=(frozen_boson if (T!=Ts[0]) else False), refresh_X=refresh_X, n = n)
 
+    if refresh_X:
+      preset.refresh_X = partial(preset.refresh_X, strength=strength, max_it=max_it)
+
     if mpi.is_master_node():
       if fixed_n:
         print "U = ",U," alpha= ",alpha, "Uch= ",Uch," Usp=",Usp," n= ",n
@@ -252,12 +256,9 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       dt.Sigma_loc_iw << 0.0 #making sure that in the first iteration the impurity problem is half-filled. if not solving impurity problem, not needed
       for U in fermionic_struct.keys(): dt.Sigmakw[U].fill(0)
       for U in fermionic_struct.keys(): dt.Xkw[U].fill(0)
-    
-    for kxi in range(dt.n_k):
-      for kyi in range(dt.n_k):
-        for wi in range(dt.nw):
-          for U in fermionic_struct.keys():
-            dt.Xkw[U][wi, kxi, kyi] += X_dwave(dt.ks[kxi],dt.ks[kyi], 1.0)
+  
+    if refresh_X:  
+      preset.refresh_X(dt)
 
     if h!=0:
       for kxi in range(dt.n_k):

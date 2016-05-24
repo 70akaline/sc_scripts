@@ -519,7 +519,7 @@ class trilex_hubbard_pm(GW_hubbard_pm):
 #--------------------supercond hubbard model---------------------------------------#
 from formulae import X_dwave
 class supercond_hubbard:
-  def __init__(self, frozen_boson=False, refresh_X = True, n = None):
+  def __init__(self, frozen_boson=False, refresh_X = False, n = None): 
     self.cautionary = self.cautionary(frozen_boson=frozen_boson, refresh_X=refresh_X)    
     self.selfenergy = partial(self.selfenergy, frozen_boson = frozen_boson)
     self.lattice = partial(self.lattice, frozen_boson = frozen_boson, n = n)
@@ -534,16 +534,24 @@ class supercond_hubbard:
     if not frozen_boson: data.get_Pqnu()
 
   class cautionary(GW.cautionary): #makes sure divergence in propagators is avoided. safe margin needs to be provided
-    def __init__(self, ms0=0.05, ccpower=2.0, ccrelax=1, refresh_X=True, frozen_boson=False):
+    def __init__(self, ms0=0.05, ccpower=2.0, ccrelax=1, refresh_X=False, frozen_boson=False):
       print "initializing supercond cautionary"
       edmft.cautionary.__init__(self,ms0, ccpower, ccrelax)
       self.frozen_boson = frozen_boson
-      self.refresh_X = refresh_X
+      if not refresh_X: self.refresh_X = lambda data: None
  
     def reset(self):
       print "reseting supercond cautionary"
       edmft.cautionary.reset(self)
       self.it_counter = 0
+
+    def refresh_X(data, max_it = 10, strength = 5.0):
+      if self.it_counter < max_it:
+        for U in data.fermionic_struct.keys():
+          for wi in [data.nw/2-1, data.nw/2]:#range(data.nw):
+            for kxi in range(data.n_k):
+              for kyi in range(data.n_k):            
+                 data.Xkw[U][wi, kxi, kyi] += X_dwave(data.ks[kxi],data.ks[kyi], strength)
 
     def check_and_fix(self, data):
       for U in data.fermionic_struct.keys():
@@ -557,13 +565,8 @@ class supercond_hubbard:
           data.Sigma_loc_iw[U].data[data.n_to_wi(n), 0, 0] = symSig
           data.Sigma_loc_iw[U].data[data.n_to_wi(0)-1-n, 0, 0] = numpy.conj(symSig)
 
-      if (self.it_counter < 10) and self.refresh_X:
-        for U in data.fermionic_struct.keys():
-          for wi in range(data.nw):
-            for kxi in range(data.n_k):
-              for kyi in range(data.n_k):            
-                 data.Xkw[U][wi, kxi, kyi] += X_dwave(data.ks[kxi],data.ks[kyi], 1.0)
 
+      self.refresh_X(data)
       #if (self.it_counter >= 5) and (self.it_counter < 8):
       #  for U in data.fermionic_struct.keys():
       #    for wi in range(data.nw):
