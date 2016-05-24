@@ -258,7 +258,8 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       for U in fermionic_struct.keys(): dt.Xkw[U].fill(0)
   
     if refresh_X:  
-      preset.refresh_X(dt)
+      preset.cautionary.reset()
+      preset.cautionary.refresh_X(dt)
 
     if h!=0:
       for kxi in range(dt.n_k):
