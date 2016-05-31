@@ -86,8 +86,8 @@ def pm_tUV_trilex_calculation( T,
 
   if trilex:
     dt.__class__ = trilex_data
-    dt.promote(self, n_iw_f = n_iw/2, 
-                     n_iw_b  = n_iw/2 ) 
+    dt.promote( n_iw_f = n_iw/2, 
+                n_iw_b  = n_iw/2 ) 
   
   if ising:
     dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True )
