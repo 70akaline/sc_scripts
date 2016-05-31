@@ -75,9 +75,7 @@ def pm_tUV_trilex_calculation( T,
                      n_w = n_iw )
 
   #init data, assign the solver to it
-  dt = trilex_data( n_iw = n_iw,
-                    n_iw_f = n_iw/2, 
-                    n_iw_b  = n_iw/2, 
+  dt = GW_data(     n_iw = n_iw,
                     n_k = n_k,
                     n_q = n_q, 
                     beta = beta, 
@@ -86,6 +84,11 @@ def pm_tUV_trilex_calculation( T,
                     fermionic_struct = fermionic_struct,
                     archive_name="so_far_nothing_you_shouldnt_see_this_file" )
 
+  if trilex:
+    dt.__class__ = trilex_data
+    dt.promote(self, n_iw_f = n_iw/2, 
+                     n_iw_b  = n_iw/2 ) 
+  
   if ising:
     dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True )
     dt.get_Pqnu = partial(dt.get_Pqnu, ising_decoupling = True )
