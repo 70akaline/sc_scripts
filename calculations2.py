@@ -202,9 +202,9 @@ def pm_tUV_trilex_calculation( T,
     #dt.get_G0kw( func = dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma) )  
     if counter==0: #do this only once!   
       if mutilde is None:
-        mu = mutilde+U/2.0      
+        mu = n*U     
       else:
-        mu = n*U      
+        mu = mutilde+U/2.0      
       dt.mus['up'] = dt.mus['down'] = mu
       dt.P_imp_iw << 0.0
       #for A in bosonic_struct.keys():
