@@ -55,7 +55,7 @@ for p in ps:
      os.system("sed -i \"s/%s=a/%s=%s/g\" %s"%(pk,pk,params[pk],newscr) )
 
    os.chdir(mydir)
-   #os.system("qsub task_curie.sh")
+   os.system("qsub task_curie.sh")
    os.chdir("..")
 
 

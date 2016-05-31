@@ -22,6 +22,9 @@ def Jq_square(qx, qy, J):
 def epsilonk_square(kx,ky,t):
   return Jq_square(kx, ky, t)
 
+def epsilonk_Aoki(kx,ky, t, tp, ts):
+  return 2.0*t*(cos(kx) + cos(ky)) + 4.0*tp*cos(kx)*cos(ky) + 2.0*ts*( cos(2.0*kx) + cos(2.0*ky) )
+
 def Jq_square_AFM(qx, qy, J): #should not make any difference when summed over the brillouin zone
   return J*( 1.0 + cmath.exp(1j*qx) + cmath.exp(1j*qy) + cmath.exp(1j*(qx+qy)) )
 
@@ -268,7 +271,7 @@ class bubble:
             if (U!=V and A!='+-')or((U==V)and(A=='+-')): continue
             m = -1.0
             if (A=='1' or A=='z') and (not ising_decoupling): m*=3.0
-            print "p[",A,"]: ", p[A], " m: ",m
+            #print "p[",A,"]: ", p[A], " m: ",m
             Sigma[U] += p[A] * m * ( func( G1 = partial(G, key=V),   G2 = partial(W, key=A),  Lambda = lambda wi1, wi2: Lambda(A, wi1, wi2)  ) )
       if su2_symmetry and ('down' in fermionic_struct.keys()): 
         Sigma['down'] = copy.deepcopy(Sigma['up'])
