@@ -268,6 +268,7 @@ class bubble:
             if (U!=V and A!='+-')or((U==V)and(A=='+-')): continue
             m = -1.0
             if (A=='1' or A=='z') and (not ising_decoupling): m*=3.0
+            print "p[",A,"]: ", p[A], " m: ",m
             Sigma[U] += p[A] * m * ( func( G1 = partial(G, key=V),   G2 = partial(W, key=A),  Lambda = lambda wi1, wi2: Lambda(A, wi1, wi2)  ) )
       if su2_symmetry and ('down' in fermionic_struct.keys()): 
         Sigma['down'] = copy.deepcopy(Sigma['up'])

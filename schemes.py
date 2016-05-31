@@ -337,7 +337,7 @@ class edmft_tUVJ_pm:
   def selfenergy(data, mutilde, U):
     dmft.selfenergy(data)
 
-    if mutilde==0.0: #this is correct only at PH symmetry!!!! be careful add a flag or something 
+    if mutilde==0.0: #this is correct only at PH symmetry!!!! be careful add a flag or something (pass mutilde=None to avoid this)
       for i in range(data.nw):
         data.Sigma_loc_iw['up'].data[i,0,0] =  U/2.0 + data.Sigma_loc_iw['up'].data[i,0,0].imag*1j #replace real part by the hartree-shift
         if '0' in data.bosonic_struct.keys():
@@ -390,7 +390,6 @@ class edmft_tUVJ_pm:
 
 class GW_hubbard_pm:
   def __init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
-    self.selfenergy = partial(self.selfenergy, mutilde=mutilde, U=U)
     #self.lattice = partial(GW.lattice, funcG = dyson.scalar.W_from_P_and_J, funcW = dyson.scalar.W_from_P_and_J)
     if (n is None) or (n==0.5):
       self.lattice = partial(GW.lattice, funcG =  dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma), funcW =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J) )
@@ -399,6 +398,7 @@ class GW_hubbard_pm:
     if n==0.5: 
       mutilde = 0.0  
       n = None
+    self.selfenergy = partial(self.selfenergy, mutilde=mutilde, U=U)
     self.pre_impurity = partial(self.pre_impurity, mutilde=mutilde, U=U, alpha=alpha, ising = ising, n=n)
     self.cautionary = GW.cautionary()    
     self.post_impurity = edmft_tUVJ_pm.post_impurity
@@ -458,9 +458,7 @@ class GW_hubbard_pm:
       fit_and_remove_constant_tail(data.Uweiss_dyn_iw[A], starting_iw=14.0)     
     
     prepare_G0_iw(data.solver.G0_iw, data.Gweiss_iw, data.fermionic_struct)
-    if (alpha!=1.0/3.0 and not ising) or ising:
-      prepare_D0_iw(data.solver.D0_iw, data.Uweiss_dyn_iw, data.fermionic_struct, data.bosonic_struct)
-    else: data.solver.D0_iw << 0.0
+    prepare_D0_iw(data.solver.D0_iw, data.Uweiss_dyn_iw, data.fermionic_struct, data.bosonic_struct)
     if (alpha!=2.0/3.0 and not ising): #if ising no Jperp!
       prepare_Jperp_iw(data.solver.Jperp_iw, data.Uweiss_dyn_iw['1']*4.0) #Uweiss['1'] pertains to n^z n^z, while Jperp to S^zS^z = n^z n^z/4
     else: data.solver.Jperp_iw << 0.0
@@ -499,7 +497,7 @@ class GW_hubbard_pm:
 
 class trilex_hubbard_pm(GW_hubbard_pm):
   def __init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
-    GW_hubbard_pm.__init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None) #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
+    GW_hubbard_pm.__init__(self, mutilde, U, alpha, bosonic_struct, ising, n) #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
     self.post_impurity = self.__class__.post_impurity     
 
   @staticmethod 

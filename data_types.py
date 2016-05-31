@@ -176,7 +176,7 @@ class mats_freq:
     return Qkw
 
   @staticmethod
-  def latt_inverse_FT(Qkw, beta, ntau, n_iw, nk, statistic='Fermion', use_IBZ_symmetry = True):
+  def latt_inverse_FT(Qkw, beta, ntau, n_iw, nk, statistic='Fermion', use_IBZ_symmetry = True, fit_tail = False):
     Qktau = numpy.zeros((ntau,nk,nk), dtype=numpy.complex_)
     g = GfImFreq(indices = [0], beta = beta, n_points = n_iw, statistic=statistic)
     gtau = GfImTime(indices = [0], beta = beta, n_points = ntau, statistic=statistic)
@@ -192,6 +192,7 @@ class mats_freq:
         if counter % mpi.size != mpi.rank: continue
         for wi in range(nw):
           g.data[wi,0,0] = Qkw[wi,kxi,kyi]
+        if fit_tail: fit_fermionic_gf_tail(g) ############# !!!!!!!!!! add the bosonic option
         gtau << InverseFourier(g)
         for taui in range(ntau):   
           Qktau[taui,kxi,kyi] = gtau.data[taui,0,0]

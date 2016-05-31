@@ -197,16 +197,17 @@ class converger:
     if self.func is None:
       self.check_gf()
     else:
-      self.func()
+      func(self)
 
     del self.mq_old
     self.get_initial()
     
-    if mpi.is_master_node() and (not (self.archive_name is None)):
-      A = HDFArchive(self.archive_name)
-      A[self.h5key] = self.diffs
-      del A
+    if mpi.is_master_node(): 
       print "converger: ",self.h5key," : ", self.diffs[-1]
+      if (not (self.archive_name is None)):
+        A = HDFArchive(self.archive_name)
+        A[self.h5key] = self.diffs
+        del A
 
     if self.diffs[-1]<self.accuracy:
       return True

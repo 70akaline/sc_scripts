@@ -34,6 +34,7 @@ def pm_tUV_trilex_calculation( T,
                                Vs = [0.0], V_dispersion = Jq_square,       
                                nk = 24,                
                                n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
+                               trilex = True,
                                use_cthyb=True, n_cycles=100000, max_time=10*60,
                                initial_guess_archive_name = '', suffix=''):
   if mpi.is_master_node(): print "WELCOME TO PM tUV trilex calculation!"
@@ -127,7 +128,7 @@ def pm_tUV_trilex_calculation( T,
     #name stuff to avoid confusion   
     if fixed_n:
       n = p[0]
-      mutilde = 0.0
+      mutilde = None
     else:
       mutilde = p[0]
       n = None
@@ -169,7 +170,12 @@ def pm_tUV_trilex_calculation( T,
     dt.fill_in_Jq( vks )  
     dt.fill_in_epsilonk(dict.fromkeys(['up','down'], partial(t_dispersion, t=t)))
 
-    preset = trilex_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct, ising = ising, n=n)
+
+    if trilex: 
+      preset = trilex_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct, ising = ising, n=n)
+    else:
+      preset = GW_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct, ising = ising, n=n)
+
 
     #preset.cautionary.get_safe_values(dt.Jq, dt.bosonic_struct, n_q, n_q)
     if mpi.is_master_node():
@@ -178,7 +184,7 @@ def pm_tUV_trilex_calculation( T,
     
     
     impurity = partial( solvers.cthyb.run, no_fermionic_bath=False, 
-                                           trilex=True, n_w_f=dt.n_iw_f, n_w_b=dt.n_iw_b,
+                                           trilex=trilex, n_w_f=dt.n_iw_f, n_w_b=dt.n_iw_b,
                                            n_cycles=n_cycles, max_time=max_time )
     dt.dump_solver = solvers.cthyb.dump
 
