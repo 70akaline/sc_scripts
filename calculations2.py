@@ -200,13 +200,17 @@ def pm_tUV_trilex_calculation( T,
                        after_it_is_done = preset.after_it_is_done )
 
     #dt.get_G0kw( func = dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma) )  
-    if counter==0: #do this only once!         
-      dt.mus['up'] = dt.mus['down'] = mutilde+U/2.0
+    if counter==0: #do this only once!   
+      if mutilde is None:
+        mu = mutilde+U/2.0      
+      else:
+        mu = n*U      
+      dt.mus['up'] = dt.mus['down'] = mu
       dt.P_imp_iw << 0.0
       #for A in bosonic_struct.keys():
       #  if preset.cautionary.safe_value[A] < 0.0:
       #    safe_and_stupid_scalar_P_imp(safe_value = preset.cautionary.safe_value[A]*0.95, P_imp=dt.P_imp_iw[A])
-      dt.Sigma_imp_iw << U/2.0 + mutilde #making sure that in the first iteration Delta is close to half-filled
+      dt.Sigma_imp_iw << mu #making sure that in the first iteration Delta is close to half-filled
 
     
     if initial_guess_archive_name!='':
