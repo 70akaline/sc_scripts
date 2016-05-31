@@ -402,6 +402,7 @@ class GW_hubbard_pm:
     self.pre_impurity = partial(self.pre_impurity, mutilde=mutilde, U=U, alpha=alpha, ising = ising, n=n)
     self.cautionary = GW.cautionary()    
     self.post_impurity = edmft_tUVJ_pm.post_impurity
+    print "INITIALIZED GW"
 
   @staticmethod
   def selfenergy(data, mutilde, U):
@@ -499,6 +500,7 @@ class trilex_hubbard_pm(GW_hubbard_pm):
   def __init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
     GW_hubbard_pm.__init__(self, mutilde, U, alpha, bosonic_struct, ising, n) #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
     self.post_impurity = self.__class__.post_impurity     
+    print "INITIALIZED TRILEX"
 
   @staticmethod 
   def post_impurity(data):

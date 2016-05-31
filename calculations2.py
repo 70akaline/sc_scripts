@@ -173,7 +173,7 @@ def pm_tUV_trilex_calculation( T,
 
     if trilex: 
       preset = trilex_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct, ising = ising, n=n)
-    else:
+    else:      
       preset = GW_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct, ising = ising, n=n)
 
 
