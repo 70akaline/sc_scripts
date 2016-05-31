@@ -9,6 +9,7 @@ from pytriqs.archive import *
 from pytriqs.gf.local import *
 from pytriqs.arrays import BlockMatrix, BlockMatrixComplex
 import pytriqs.utility.mpi as mpi
+from time import *
 #from glattice_tools.core import *  
 #from glattice_tools.multivar import *  
 #from trilex.tools import *
@@ -73,7 +74,8 @@ class dmft_loop:
     for loop_index in range(n_loops_max):
       if mpi.is_master_node():
         print "---------------------------- loop_index: ",loop_index,"/",n_loops_max,"---------------------------------"
-      
+      t1 = time()
+
       if loop_index!=0 or not skip_self_energy_on_first_iteration: 
         self.selfenergy(data=data)
 
@@ -81,17 +83,28 @@ class dmft_loop:
         data.err = self.cautionary.check_and_fix(data)        
         if data.err and (loop_index > last_iteration_err_is_allowed):
           failed = True
+
+      t2 = time()
+
       self.lattice(data=data)
+
+      t3 = time()
 
       self.pre_impurity(data=data)
 
       if mpi.is_master_node():
         data.dump_impurity_input(suffix='-%s'%loop_index)    
 
+      t4 = time()
+
       mpi.barrier()
       self.impurity(data=data)
 
+      t5 = time()
+
       self.post_impurity(data=data)
+
+      t6 = time()
 
       c = True
       for conv in self.convergers:
@@ -116,6 +129,11 @@ class dmft_loop:
         A['max_index'] = loop_index
         del A
 
+      t7 = time()
+
+      if mpi.is_master_node():
+        self.print_timings(t1,t2,t3,t4,t5,t6,t7)
+
       if converged and loop_index>n_loops_min: break
 
     if not (self.after_it_is_done is None):
@@ -130,6 +148,17 @@ class dmft_loop:
         return 2 #probably hitting AFM
       else:
         return 1 #maximum number of loops reached  
+
+
+  def print_timings(self, t1,t2,t3,t4,t5,t6,t7):
+    print "########### DMFT LOOP timings #########"
+    print "selfenergy took: ", t2-t1, " secs"
+    print "lattice took: ", t3-t2, " secs"
+    print "pre impurity took: ", t4-t3, " secs"
+    print "impurity took: ", t5-t4, " secs"
+    print "post impurity took: ", t6-t5, " secs"
+    print "whole iteration took: ", t7-t1, " secs"
+    print "#######################################"
 
 
 ################################# CONVERGENCE and MIXING ###############################################
