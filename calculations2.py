@@ -187,7 +187,7 @@ def pm_tUV_trilex_calculation( T,
     
     
     impurity = partial( solvers.cthyb.run, no_fermionic_bath=False, 
-                                           trilex=trilex, n_w_f=dt.n_iw_f, n_w_b=dt.n_iw_b,
+                                           trilex=trilex, n_w_f=dt.n_iw_f if trilex else 2, n_w_b=dt.n_iw_b if trilex else 2,
                                            n_cycles=n_cycles, max_time=max_time )
     dt.dump_solver = solvers.cthyb.dump
 
