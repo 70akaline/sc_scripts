@@ -139,13 +139,12 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     
     dt.get_Sigmakw = lambda: dt.__class__.get_Sigmakw(dt, ising_decoupling = ising, imtime = imtime)
     dt.get_Xkw = lambda: dt.__class__.get_Xkw(dt, ising_decoupling = ising, imtime = imtime)
-    dt.get_Pqnu = lambda: dt.__class__.get_Pqnu(dt, ising_decoupling = ising, imtime = imtime)
+    dt.get_Pqnu = lambda: dt.__class__.get_Pqnu(dt, imtime = imtime)
     dt.get_Sigma_loc_from_local_bubble = lambda: dt.__class__.get_Sigma_loc_from_local_bubble(dt, ising_decoupling = ising, imtime = imtime)
-    dt.get_P_loc_from_local_bubble = lambda: dt.__class__.get_P_loc_from_local_bubble(dt, ising_decoupling = ising, imtime = imtime)
-
+    dt.get_P_loc_from_local_bubble = lambda: dt.__class__.get_P_loc_from_local_bubble(dt, imtime = imtime)
     if ((h==0.0)or(h==0))and (not refresh_X):
       dt.get_Xkw = lambda: None
-      dt.get_Pqnu = lambda: GW_data.get_Pqnu(dt, ising_decoupling = ising, imtime = imtime)
+      dt.get_Pqnu = lambda: GW_data.get_Pqnu(dt, imtime = imtime)
 
     if nk!=old_nk:
       dt.change_ks(IBZ.k_grid(nk))
