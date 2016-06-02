@@ -98,20 +98,6 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     dt.__class__=supercond_trilex_data
     dt.promote(dt.n_iw/2, dt.n_iw/2)
 
-  if imtime:
-    dt.get_Sigmakw = partial(dt.get_Sigmakw, imtime = True)
-    dt.get_Xkw = partial(dt.get_Xkw, imtime = True)
-    dt.get_Pqnu = partial(dt.get_Pqnu, imtime = True)
-    dt.get_Sigma_loc_from_local_bubble = partial(dt.get_Sigma_loc_from_local_bubble, imtime = True)
-    dt.get_P_loc_from_local_bubble = partial(dt.get_P_loc_from_local_bubble, imtime = True)
-  if ising:
-    dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True )
-    dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True)
-    dt.get_Xkw = partial(dt.get_Xkw, ising_decoupling = True)
-    dt.get_Pqnu = partial(dt.get_Pqnu, ising_decoupling = True)
-    dt.get_Sigma_loc_from_local_bubble = partial(dt.get_Sigma_loc_from_local_bubble, ising_decoupling = True)
-    dt.get_P_loc_from_local_bubble = partial(dt.get_P_loc_from_local_bubble, ising_decoupling = True)
-
   #init convergence and cautionary measures
   convergers = [ converger( monitored_quantity = lambda: dt.P_loc_iw,
                             accuracy=accuracy, 
@@ -149,6 +135,16 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     T = p[4] 
     beta = 1.0/T
     h = p[5]
+
+    
+    dt.get_Sigmakw = partial(dt.__class__.get_Sigmakw, ising_decoupling = ising, imtime = imtime)
+    dt.get_Xkw = partial(dt.__class__.get_Xkw, ising_decoupling = ising, imtime = imtime)
+    dt.get_Pqnu = partial(dt.__class__.get_Pqnu, ising_decoupling = ising, imtime = imtime)
+    dt.get_Sigma_loc_from_local_bubble = partial(dt.__class__.get_Sigma_loc_from_local_bubble, ising_decoupling = ising, imtime = imtime)
+    dt.get_P_loc_from_local_bubble = partial(dt.__class__.get_P_loc_from_local_bubble, ising_decoupling = ising, imtime = imtime)
+    if ((h==0.0)or(h==0))and (not refresh_X):
+      dt.get_Xkw = lambda: None
+      dt.get_Pqnu = partial(GW_data.get_Pqnu, ising_decoupling = ising, imtime = imtime)
 
     if nk!=old_nk:
       dt.change_ks(IBZ.k_grid(nk))
