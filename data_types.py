@@ -1068,7 +1068,7 @@ class GW_data(edmft_data):
         function_applicators.subtract_loc_from_k_dependent(self.Sigmakw[U][wi,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
         self.Sigmakw[U][wi,:,:] += self.Sigma_loc_iw[U].data[wi,0,0]
 
-  def get_Pqnu(self, imtime = False, simple = False, use_IBZ_symmetry = True, ising_decoupling=False, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
+  def get_Pqnu(self, imtime = False, simple = False, use_IBZ_symmetry = True, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
     if not imtime:
       bubble.full.P\
                 ( self.fermionic_struct, self.bosonic_struct, 
@@ -1503,8 +1503,8 @@ class supercond_data(GW_data):
         function_applicators.subtract_loc_from_k_dependent(self.Xkw[U][wi,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
         self.Xkw[U][wi,:,:] += self.hsck[U][:,:]
 
-  def get_Pqnu(self, imtime = False, simple = False, use_IBZ_symmetry = True, ising_decoupling=False, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
-    GW_data.get_Pqnu(self, imtime, simple, use_IBZ_symmetry, ising_decoupling, su2_symmetry, nui_list, Lambda) 
+  def get_Pqnu(self, imtime = False, simple = False, use_IBZ_symmetry = True, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
+    GW_data.get_Pqnu(self, imtime, simple, use_IBZ_symmetry, su2_symmetry, nui_list, Lambda) 
     Fstarkw = {}
     for U in self.fermionic_struct.keys():
       Fstarkw[U] = numpy.conj(self.Fkw[U])  

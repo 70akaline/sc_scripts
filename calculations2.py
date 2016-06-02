@@ -97,7 +97,6 @@ def pm_tUV_trilex_calculation( T,
   
   if ising:
     dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True )
-    dt.get_Pqnu = partial(dt.get_Pqnu, ising_decoupling = True )
 
   #init convergence and cautionary measures
   convergers = [ converger( monitored_quantity = lambda: dt.P_imp_iw,
