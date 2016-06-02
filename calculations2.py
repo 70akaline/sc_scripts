@@ -88,6 +88,12 @@ def pm_tUV_trilex_calculation( T,
     dt.__class__ = trilex_data
     dt.promote( n_iw_f = n_iw/2, 
                 n_iw_b  = n_iw/2 ) 
+
+  if not trilex:
+    dt.get_Sigmakw = partial(dt.get_Sigmakw, imtime = True)
+    dt.get_Pqnu = partial(dt.get_Pqnu, imtime = True)
+    #dt.get_Sigma_loc_from_local_bubble = partial(dt.get_Sigma_loc_from_local_bubble, imtime = True)
+    #dt.get_P_loc_from_local_bubble = partial(dt.get_P_loc_from_local_bubble, imtime = True)
   
   if ising:
     dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True )
