@@ -104,7 +104,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     dt.get_Pqnu = partial(dt.get_Pqnu, imtime = True)
     dt.get_Sigma_loc_from_local_bubble = partial(dt.get_Sigma_loc_from_local_bubble, imtime = True)
     dt.get_P_loc_from_local_bubble = partial(dt.get_P_loc_from_local_bubble, imtime = True)
-   if ising:
+  if ising:
     dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True )
     dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True)
     dt.get_Xkw = partial(dt.get_Xkw, ising_decoupling = True)
