@@ -137,14 +137,14 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     h = p[5]
 
     
-    dt.get_Sigmakw = partial(dt.__class__.get_Sigmakw, ising_decoupling = ising, imtime = imtime)
-    dt.get_Xkw = partial(dt.__class__.get_Xkw, ising_decoupling = ising, imtime = imtime)
-    dt.get_Pqnu = partial(dt.__class__.get_Pqnu, ising_decoupling = ising, imtime = imtime)
-    dt.get_Sigma_loc_from_local_bubble = partial(dt.__class__.get_Sigma_loc_from_local_bubble, ising_decoupling = ising, imtime = imtime)
-    dt.get_P_loc_from_local_bubble = partial(dt.__class__.get_P_loc_from_local_bubble, ising_decoupling = ising, imtime = imtime)
+    dt.get_Sigmakw = partial(dt.__class__.get_Sigmakw, self = dt, ising_decoupling = ising, imtime = imtime)
+    dt.get_Xkw = partial(dt.__class__.get_Xkw, self = dt, ising_decoupling = ising, imtime = imtime)
+    dt.get_Pqnu = partial(dt.__class__.get_Pqnu, self = dt, ising_decoupling = ising, imtime = imtime)
+    dt.get_Sigma_loc_from_local_bubble = partial(dt.__class__.get_Sigma_loc_from_local_bubble, self = dt, ising_decoupling = ising, imtime = imtime)
+    dt.get_P_loc_from_local_bubble = partial(dt.__class__.get_P_loc_from_local_bubble, self = dt, ising_decoupling = ising, imtime = imtime)
     if ((h==0.0)or(h==0))and (not refresh_X):
       dt.get_Xkw = lambda: None
-      dt.get_Pqnu = partial(GW_data.get_Pqnu, ising_decoupling = ising, imtime = imtime)
+      dt.get_Pqnu = partial(GW_data.get_Pqnu, self = dt, ising_decoupling = ising, imtime = imtime)
 
     if nk!=old_nk:
       dt.change_ks(IBZ.k_grid(nk))
