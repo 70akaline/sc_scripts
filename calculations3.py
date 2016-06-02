@@ -32,7 +32,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             mutildes=[0.0, 0.2, 0.4, 0.6, 0.8],
                             ns = [0.5,0.53,0.55,0.57,0.6], fixed_n = False,   
                             ts=[0.25], t_dispersion = epsilonk_square,
-                            Us = [1.0,2.0,3.0,4.0], alpha=2.0/3.0,
+                            Us = [1.0,2.0,3.0,4.0], alpha=2.0/3.0, ising = False,
                             hs = [0],  
                             frozen_boson = False, 
                             refresh_X = True, strength = 5.0, max_it = 10,
@@ -45,10 +45,16 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
   if mpi.is_master_node(): print "WELCOME TO supercond hubbard calculation!"
 
   bosonic_struct = {'0': [0], '1': [0]}    
-  if alpha==2.0/3.0:
-    del bosonic_struct['1']
-  if alpha==1.0/3.0:
-    del bosonic_struct['0']
+  if not ising:
+    if alpha==2.0/3.0:
+      del bosonic_struct['1']
+    if alpha==1.0/3.0:
+      del bosonic_struct['0']
+  else:
+    if alpha==1.0:
+      del vks['1']
+    if alpha==0.0:
+      del vks['0']
 
   fermionic_struct = {'up': [0], 'down': [0]}
   if not trilex:
@@ -98,7 +104,13 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     dt.get_Pqnu = partial(dt.get_Pqnu, imtime = True)
     dt.get_Sigma_loc_from_local_bubble = partial(dt.get_Sigma_loc_from_local_bubble, imtime = True)
     dt.get_P_loc_from_local_bubble = partial(dt.get_P_loc_from_local_bubble, imtime = True)
-   
+   if ising:
+    dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True )
+    dt.get_Sigmakw = partial(dt.get_Sigmakw, ising_decoupling = True)
+    dt.get_Xkw = partial(dt.get_Xkw, ising_decoupling = True)
+    dt.get_Pqnu = partial(dt.get_Pqnu, ising_decoupling = True)
+    dt.get_Sigma_loc_from_local_bubble = partial(dt.get_Sigma_loc_from_local_bubble, ising_decoupling = True)
+    dt.get_P_loc_from_local_bubble = partial(dt.get_P_loc_from_local_bubble, ising_decoupling = True)
 
   #init convergence and cautionary measures
   convergers = [ converger( monitored_quantity = lambda: dt.P_loc_iw,
@@ -173,13 +185,24 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     for conv in convergers:
       conv.archive_name = dt.archive_name
 
-    Uch = (3.0*alpha-1.0)*U
-    Usp = (alpha-2.0/3.0)*U
+    if not ising:
+      Uch = (3.0*alpha-1.0)*U
+      Usp = (alpha-2.0/3.0)*U
+    else:
+      Uch = alpha*U
+      Usp = (alpha-1.0)*U
+
     vks = {'0': lambda kx,ky: Uch, '1': lambda kx,ky: Usp}
-    if alpha==2.0/3.0:
-      del vks['1']
-    if alpha==1.0/3.0:
-      del vks['0']
+    if not ising:
+      if alpha==2.0/3.0:
+        del vks['1']
+      if alpha==1.0/3.0:
+        del vks['0']
+    else:
+      if alpha==1.0:
+        del vks['1']
+      if alpha==0.0:
+        del vks['0']
     
     dt.fill_in_Jq( vks )  
     dt.fill_in_epsilonk(dict.fromkeys(fermionic_struct.keys(), partial(t_dispersion, t=t)))
