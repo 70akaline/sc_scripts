@@ -29,7 +29,7 @@ import itertools
 def pm_tUV_trilex_calculation( T, 
                                mutildes=[0.0], 
                                ns = [0.5, 0.53, 0.55, 0.57], fixed_n = False,
-                               ts=[0.25], t_dispersion = epsilonk_square,
+                               ts=[0.25], t_dispersion = epsilonk_square, ph_symmetry = True,
                                Us = [1.0], alpha=2.0/3.0, ising = False,    
                                Vs = [0.0], V_dispersion = Jq_square,       
                                nk = 24,                
@@ -180,9 +180,9 @@ def pm_tUV_trilex_calculation( T,
 
 
     if trilex: 
-      preset = trilex_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct, ising = ising, n=n)
+      preset = trilex_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct, ising = ising, n=n, ph_symmetry=ph_symmetry)
     else:      
-      preset = GW_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct, ising = ising, n=n)
+      preset = GW_hubbard_pm(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct, ising = ising, n=n, ph_symmetry=ph_symmetry)
 
 
     #preset.cautionary.get_safe_values(dt.Jq, dt.bosonic_struct, n_q, n_q)

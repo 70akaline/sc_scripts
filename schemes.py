@@ -389,13 +389,16 @@ class edmft_tUVJ_pm:
 #--------------------GW Hubbard pm---------------------------------------#
 
 class GW_hubbard_pm:
-  def __init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
+  def __init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None, ph_symmetry=True): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
     #self.lattice = partial(GW.lattice, funcG = dyson.scalar.W_from_P_and_J, funcW = dyson.scalar.W_from_P_and_J)
-    if (n is None) or (n==0.5):
-      self.lattice = partial(GW.lattice, funcG =  dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma), funcW =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J) )
+    if (n is None) or ((n==0.5) and ph_symmetry):
+      self.lattice = partial(GW.lattice, funcG =  dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma), 
+                                         funcW =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J) )
     else:
-      self.lattice = partial(self.lattice, n = n, funcG =  dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma), funcW =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J) )
-    if n==0.5: 
+      self.lattice = partial(self.lattice, n = n,  
+                                           funcG =  dict.fromkeys(['up', 'down'], dyson.scalar.G_from_w_mu_epsilon_and_Sigma), 
+                                           funcW =  dict.fromkeys(bosonic_struct.keys(), dyson.scalar.W_from_P_and_J) )
+    if n==0.5 and ph_symmetry: 
       mutilde = 0.0  
       n = None
     self.selfenergy = partial(self.selfenergy, mutilde=mutilde, U=U)
@@ -414,34 +417,30 @@ class GW_hubbard_pm:
   @staticmethod
   def lattice(data, funcG, funcW, n): #the only option - we need Gkw and Wqnu for self energy in the next iteration
     #data.get_Gkw(funcG) #gets Gkw from G0 and Sigma
-    if (n == 0.5):
-      data.get_Gkw_direct(funcG) #gets Gkw from w, mu, epsilon and Sigma
-      data.get_G_loc() #gets G_loc from Gkw
-    else:
-      def func(var, data):
-        mu = var[0]
-        dt = data[0]
-        #print "func call! mu: ", mu, " n: ",dt.ns['up']
-        n= data[1] 
-        dt.mus['up'] = mu
-        dt.mus['down'] = dt.mus['up']
-        dt.get_Gkw_direct(funcG) #gets Gkw from w, mu, epsilon and Sigma and X
-        dt.get_G_loc() #gets G_loc from Gkw
-        dt.get_n_from_G_loc()     
-        #print "funcvalue: ",-abs(n - dt.ns['up'])  
-        return 1.0-abs(n - dt.ns['up'])  
-      mpi.barrier()
-      varbest, funcvalue, iterations = amoeba(var=[data.mus['up']],
+    def func(var, data):
+      mu = var[0]
+      dt = data[0]
+      #print "func call! mu: ", mu, " n: ",dt.ns['up']
+      n= data[1] 
+      dt.mus['up'] = mu
+      dt.mus['down'] = dt.mus['up']
+      dt.get_Gkw_direct(funcG) #gets Gkw from w, mu, epsilon and Sigma and X
+      dt.get_G_loc() #gets G_loc from Gkw
+      dt.get_n_from_G_loc()     
+      #print "funcvalue: ",-abs(n - dt.ns['up'])  
+      return 1.0-abs(n - dt.ns['up'])  
+    mpi.barrier()
+    varbest, funcvalue, iterations = amoeba(var=[data.mus['up']],
                                               scale=[0.01],
                                               func=func, 
                                               data = [data, n],
                                               itmax=30,
                                               ftolerance=1e-2,
                                               xtolerance=1e-2)
-      if mpi.is_master_node():
-        print "mu best: ", varbest
-        print "-abs(diff n - data.n): ", funcvalue
-        print "iterations used: ", iterations
+    if mpi.is_master_node():
+      print "mu best: ", varbest
+      print "-abs(diff n - data.n): ", funcvalue
+      print "iterations used: ", iterations
 
     data.get_Gtildekw() #gets Gkw-G_loc
 
@@ -459,7 +458,7 @@ class GW_hubbard_pm:
       fit_and_remove_constant_tail(data.Uweiss_dyn_iw[A], starting_iw=14.0)     
     
     prepare_G0_iw(data.solver.G0_iw, data.Gweiss_iw, data.fermionic_struct)
-    prepare_D0_iw(data.solver.D0_iw, data.Uweiss_dyn_iw, data.fermionic_struct, data.bosonic_struct)
+    prepare_D0_iw(data.solver.D0_iw, data.Uweiss_dyn_iw, data.fermionic_struct, data.bosonic_struct) # but there is ALWAYS D0
     if (alpha!=2.0/3.0 and not ising): #if ising no Jperp!
       prepare_Jperp_iw(data.solver.Jperp_iw, data.Uweiss_dyn_iw['1']*4.0) #Uweiss['1'] pertains to n^z n^z, while Jperp to S^zS^z = n^z n^z/4
     else: data.solver.Jperp_iw << 0.0
@@ -497,8 +496,8 @@ class GW_hubbard_pm:
 #--------------------trilex---------------------------------------#
 
 class trilex_hubbard_pm(GW_hubbard_pm):
-  def __init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
-    GW_hubbard_pm.__init__(self, mutilde, U, alpha, bosonic_struct, ising, n) #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
+  def __init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None, ph_symmetry=True): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
+    GW_hubbard_pm.__init__(self, mutilde, U, alpha, bosonic_struct, ising, n, ph_symmetry) #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
     self.post_impurity = self.__class__.post_impurity     
     print "INITIALIZED TRILEX"
 
@@ -519,10 +518,10 @@ class trilex_hubbard_pm(GW_hubbard_pm):
 #--------------------supercond hubbard model---------------------------------------#
 from formulae import X_dwave
 class supercond_hubbard:
-  def __init__(self, frozen_boson=False, refresh_X = False, n = None): 
+  def __init__(self, frozen_boson=False, refresh_X = False, n = None, ph_symmetry = False): 
     self.cautionary = self.cautionary(frozen_boson=frozen_boson, refresh_X=refresh_X)    
     self.selfenergy = partial(self.selfenergy, frozen_boson = frozen_boson)
-    self.lattice = partial(self.lattice, frozen_boson = frozen_boson, n = n)
+    self.lattice = partial(self.lattice, frozen_boson = frozen_boson, n = n, ph_symmetry = ph_symmetry)
 
   @staticmethod 
   def selfenergy(data, frozen_boson):
@@ -582,8 +581,8 @@ class supercond_hubbard:
 
 
   @staticmethod 
-  def lattice(data, frozen_boson, n):
-    if (n is None) or (n==0.5):
+  def lattice(data, frozen_boson, n, ph_symmetry):
+    if (n is None) or ((n==0.5) and ph_symmetry):
       if n==0.5: 
         data.mus['up'] = 0
         if 'down' in data.fermionic_struct.keys(): data.mus['down'] = data.mus['up']  
@@ -640,9 +639,9 @@ class supercond_hubbard:
 #--------------------supercond trilex hubbard model---------------------------------------#
 
 class supercond_trilex_hubbard:
-  def __init__(self, mutilde, U, alpha, bosonic_struct): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
+  def __init__(self, mutilde, U, alpha, bosonic_struct, ph_symmetry = True): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
     self.pre_impurity = partial(GW_hubbard_pm.pre_impurity, mutilde=mutilde, U=U, alpha=alpha)
-    self.lattice = partial( supercond_hubbard.lattice, frozen_boson=False, n = None )
+    self.lattice = partial( supercond_hubbard.lattice, frozen_boson=False, n = None, ph_symmetry = ph_symmetry)
     self.cautionary = GW.cautionary()    
     self.post_impurity = trilex_hubbard_pm.post_impurity
     self.after_it_is_done = trilex_hubbard_pm.after_it_is_done  
@@ -658,11 +657,11 @@ class supercond_trilex_hubbard:
 #--------------------supercond trilex tUVJ model, HS-VJ scheme (only non-local interactions are decoupled - reduces to DFMT if V and J are zero)---------------------------------------#
 
 class supercond_trilex_tUVJ:
-  def __init__(self, n, U, bosonic_struct, C=0.25): #mutilde is searched for to get the desired n. the initial guess for mu needs to be provided. no need to pass V or J, it is included in Jq.
+  def __init__(self, n, U, bosonic_struct, C=0.25, ph_symmetry = True): #mutilde is searched for to get the desired n. the initial guess for mu needs to be provided. no need to pass V or J, it is included in Jq.
     self.n = n
     self.C = C
     self.selfenergy = supercond_trilex_hubbard.selfenergy
-    self.lattice = partial( supercond_hubbard.lattice, frozen_boson = False )
+    self.lattice = partial( supercond_hubbard.lattice, frozen_boson = False, ph_symmetry )
     self.cautionary = GW.cautionary()    
     self.pre_impurity = partial( self.pre_impurity, n=n, U=U, C=C )
     self.post_impurity = trilex_hubbard_pm.post_impurity

@@ -31,7 +31,7 @@ from impurity_solvers import *
 def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01], 
                             mutildes=[0.0, 0.2, 0.4, 0.6, 0.8],
                             ns = [0.5,0.53,0.55,0.57,0.6], fixed_n = False,   
-                            ts=[0.25], t_dispersion = epsilonk_square,
+                            ts=[0.25], t_dispersion = epsilonk_square, ph_symmetry = True,
                             Us = [1.0,2.0,3.0,4.0], alpha=2.0/3.0, ising = False,
                             hs = [0],  
                             frozen_boson = False, 
@@ -206,7 +206,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     if trilex: 
       preset = supercond_trilex_hubbard(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct)
     else:
-      preset = supercond_hubbard(frozen_boson=(frozen_boson if (T!=Ts[0]) else False), refresh_X=refresh_X, n = n)
+      preset = supercond_hubbard(frozen_boson=(frozen_boson if (T!=Ts[0]) else False), refresh_X=refresh_X, n = n, ph_symmetry=ph_symmetry)
 
     if refresh_X:
       preset.cautionary.refresh_X = partial(preset.cautionary.refresh_X, strength=strength, max_it=max_it)
