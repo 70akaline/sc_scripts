@@ -661,7 +661,7 @@ class supercond_trilex_tUVJ:
     self.n = n
     self.C = C
     self.selfenergy = supercond_trilex_hubbard.selfenergy
-    self.lattice = partial( supercond_hubbard.lattice, frozen_boson = False, ph_symmetry )
+    self.lattice = partial( supercond_hubbard.lattice, frozen_boson = False, ph_symmetry = ph_symmetry )
     self.cautionary = GW.cautionary()    
     self.pre_impurity = partial( self.pre_impurity, n=n, U=U, C=C )
     self.post_impurity = trilex_hubbard_pm.post_impurity
