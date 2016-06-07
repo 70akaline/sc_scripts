@@ -613,7 +613,7 @@ class supercond_hubbard:
                                               xtolerance=1e-2)
       if mpi.is_master_node():
         print "mu best: ", varbest
-        print "-abs(diff n - data.n): ", funcvalue
+        print "1-abs(diff n - data.n): ", funcvalue
         print "iterations used: ", iterations
 
     data.get_Gtildekw() #gets Gkw-G_loc
