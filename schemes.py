@@ -79,7 +79,7 @@ class edmft: #deals with bosonic quantities, edmft style
     data.P_loc_iw << data.P_imp_iw
 
   class cautionary: #makes sure divergence in propagators is avoided. safe margin needs to be provided
-    def __init__(self, ms0=0.05, ccpower=2.0, ccrelax=1):
+    def __init__(self, ms0=0.0005, ccpower=2.0, ccrelax=1):
       self.ms0 = ms0
       self.ccpower = ccpower
       self.ccrelax = ccrelax
