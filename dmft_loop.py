@@ -175,7 +175,7 @@ class mixer:
     self.func = func
 
   def get_initial(self):
-    self.mq_old = copy.deepcopy(self.mq)
+    self.mq_old = copy.deepcopy(self.mq())
 
   def mix(self, loop_index):
     #mix the monitored bosonic Gf
@@ -192,19 +192,19 @@ class mixer:
     del self.mq_old
     self.get_initial()
 
-  def mix_gf(self, ratio):
-    self.mq << ratio*self.mq_old + (1.0-ratio)*self.mq
+  #def mix_gf(self, ratio):
+  #  self.mq << ratio*self.mq_old + (1.0-ratio)*self.mq()
 
-  def mix_regular(self, ratio):
-    self.mq = ratio*self.mq_old + (1.0-ratio)*self.mq
+  #def mix_regular(self, ratio): #THIS IS NOT GOING TO WORK
+  #  self.mq = ratio*self.mq_old + (1.0-ratio)*self.mq()
 
   def mix_lattice_gf(self, ratio):
     for key in self.mq.keys():
-      self.mq[key][:,:,:] = ratio*self.mq_old[key][:,:,:] + (1.0-ratio)*self.mq[key][:,:,:]
+      self.mq()[key][:,:,:] = ratio*self.mq_old[key][:,:,:] + (1.0-ratio)*self.mq()[key][:,:,:]
 
-  def mix_dictionary(self, ratio):
-    for key in self.mq.keys():
-      self.mq[key] = ratio*self.mq_old[key] + (1.0-ratio)*self.mq[key]
+  #def mix_dictionary(self, ratio):
+  #  for key in self.mq().keys():
+  #    self.mq()[key] = ratio*self.mq_old[key] + (1.0-ratio)*self.mq()[key
 
 
 class converger:
