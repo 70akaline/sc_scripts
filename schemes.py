@@ -626,6 +626,7 @@ class supercond_hubbard:
 
              
       if mpi.is_master_node() and found:
+        print "guesses tried: ", l  
         print "mu best: ", varbest
         print "1-abs(diff n - data.n): ", funcvalue
         print "iterations used: ", iterations
