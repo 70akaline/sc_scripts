@@ -200,9 +200,9 @@ class GW:
               if  ( data.Pqnu[A][i,qxi,qyi].real < (data.Jq[A][qxi,qyi])**(-1.0) ) and (data.Jq[A][qxi,qyi]<0.0) : #here we assume P is negative
                 data.Pqnu[A][i,qxi,qyi] = prefactor*(data.Jq[A][qxi,qyi])**(-1.0) + 1j*data.Pqnu[A][i,qxi,qyi].imag
                 clipped = True        
-              if  (data.Pqnu[A][i,qxi,qyi].real > 0.0): #here we assume P is negative
-                #print "CLIPPING: P[",A,"]: ", data.Pqnu[A][i,qxi,qyi].real,"safe_value: ", self.safe_value[A]
-                data.Pqnu[A][i,qxi,qyi] = 0.0 +  1j*data.Pqnu[A][i,qxi,qyi].imag   
+              #if  (data.Pqnu[A][i,qxi,qyi].real > 0.0): #here we assume P is negative
+              #  #print "CLIPPING: P[",A,"]: ", data.Pqnu[A][i,qxi,qyi].real,"safe_value: ", self.safe_value[A]
+              #  data.Pqnu[A][i,qxi,qyi] = 0.0 +  1j*data.Pqnu[A][i,qxi,qyi].imag   
       if clipped: 
         self.clip_counter += 1 
       else: 
