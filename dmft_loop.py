@@ -192,8 +192,9 @@ class mixer:
     del self.mq_old
     self.get_initial()
 
-  #def mix_gf(self, ratio):
-  #  self.mq << ratio*self.mq_old + (1.0-ratio)*self.mq()
+  def mix_gf(self, ratio):
+    for name, m in self.mq():
+      m << ratio*self.mq_old[name] + (1.0-ratio)*m
 
   #def mix_regular(self, ratio): #THIS IS NOT GOING TO WORK
   #  self.mq = ratio*self.mq_old + (1.0-ratio)*self.mq()

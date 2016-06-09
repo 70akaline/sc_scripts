@@ -235,7 +235,10 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
 
     mixers = [ mixer( mixed_quantity = lambda: dt.Pqnu,
                       rules=rules,
-                      func=mixer.mix_lattice_gf )] #,
+                      func=mixer.mix_lattice_gf ),
+              mixer( mixed_quantity = lambda: dt.P_loc_iw,
+                     rules=rules,
+                     func=mixer.mix_gf )] #,
 #               mixer( mixed_quantity = lambda: dt.Sigmakw,
 #                      rules=rules,
 #                      func=mixer.mix_lattice_gf)  ]
