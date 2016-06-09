@@ -233,12 +233,12 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     else:
       impurity = lambda data: None
 
-    mixers = [ mixer( mixed_quantity = dt.P_loc_iw,
+    mixers = [ mixer( mixed_quantity = dt.Pqnu,
                       rules=rules,
-                      func=mixer.mix_gf ),
-               mixer( mixed_quantity = dt.Sigma_loc_iw,
+                      func=mixer.mix_lattice_gf ),
+               mixer( mixed_quantity = dt.Sigmakw,
                       rules=rules,
-                      func=mixer.mix_gf)  ]
+                      func=mixer.mix_lattice_gf)  ]
 
     monitors = [ monitor( monitored_quantity = lambda: dt.ns['up'], 
                           h5key = 'n_vs_it', 
@@ -295,6 +295,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                     n_loops_min=n_loops_min,
                     print_three_leg=1, print_non_local=print_non_local_frequency,
                     skip_self_energy_on_first_iteration=True,
+                    mix_after_selfenergy = True, 
                     last_iteration_err_is_allowed = 18 )
     if (err==2): break
     counter += 1

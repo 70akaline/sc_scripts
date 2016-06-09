@@ -54,6 +54,7 @@ class dmft_loop:
                 n_loops_max=100, n_loops_min=5, 
                 print_non_local=1, print_three_leg=1,
                 skip_self_energy_on_first_iteration=False,  #1 every iteration, 2 every second, -2 never (except for final)
+                mix_after_self_energy = False, 
                 last_iteration_err_is_allowed = 15 ):
     for mixer in self.mixers:
       mixer.get_initial()
@@ -78,6 +79,10 @@ class dmft_loop:
 
       if loop_index!=0 or not skip_self_energy_on_first_iteration: 
         self.selfenergy(data=data)
+
+      if mix_after_selfenergy:
+        for mixer in self.mixers:
+          mixer.mix(loop_index)
 
       if not (self.cautionary is None):
         data.err = self.cautionary.check_and_fix(data)        
@@ -112,7 +117,7 @@ class dmft_loop:
           c = False
       converged = c #here we are checking that all have converged, not that at least one has converged
 
-      if not converged:
+      if not converged and not mix_after_selfenergy:
         for mixer in self.mixers:
           mixer.mix(loop_index)
 
