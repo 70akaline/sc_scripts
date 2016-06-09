@@ -54,7 +54,7 @@ class dmft_loop:
                 n_loops_max=100, n_loops_min=5, 
                 print_non_local=1, print_three_leg=1,
                 skip_self_energy_on_first_iteration=False,  #1 every iteration, 2 every second, -2 never (except for final)
-                mix_after_self_energy = False, 
+                mix_after_selfenergy = False, 
                 last_iteration_err_is_allowed = 15 ):
     for mixer in self.mixers:
       mixer.get_initial()
