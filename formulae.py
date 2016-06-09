@@ -261,13 +261,16 @@ class bubble:
                Sigma, G, W, Lambda, 
                func,
                su2_symmetry, ising_decoupling, 
-               p = {'0': 1.0, '1': 1.0},
+               p = {'0': 1.0, '1': 1.0, 'z': 1.0, 'c': 2.0},
                overwrite = True ):
       for U in fermionic_struct.keys():
         if su2_symmetry and U!='up': continue      
         if overwrite: Sigma[U].fill(0.0) 
         for V in fermionic_struct.keys():            
           for A in bosonic_struct.keys():     
+            if not (A in p.keys()):
+              print "Sigma WARNING: skipping block ",A
+              continue 
             if (U!=V and A!='+-')or((U==V)and(A=='+-')): continue
             m = -1.0
             if (A=='1' or A=='z') and (not ising_decoupling): m*=3.0
@@ -283,7 +286,10 @@ class bubble:
                su2_symmetry,
                G2 = None,  p = {'0': 1.0, '1': 1.0} ):
       if G2 is None: G2 = G
-      for A in bosonic_struct.keys():     
+      for A in bosonic_struct.keys(): 
+        if not (A in p.keys()):
+          print "P WARNING: skipping block ",A
+          continue
         P[A].fill(0.0)
         for U in fermionic_struct.keys():
           if su2_symmetry and (U!='up'): continue

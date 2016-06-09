@@ -582,13 +582,17 @@ class supercond_hubbard:
 
   @staticmethod 
   def lattice(data, frozen_boson, n, ph_symmetry):
+    def get_n(dt):
+      dt.get_Gkw_direct() #gets Gkw from w, mu, epsilon and Sigma and X
+      dt.get_Fkw_direct() #gets Fkw from w, mu, epsilon and Sigma and X
+      dt.get_G_loc() #gets G_loc from Gkw
+      dt.get_n_from_G_loc()     
+
     if (n is None) or ((n==0.5) and ph_symmetry):
       if n==0.5: 
         data.mus['up'] = 0
         if 'down' in data.fermionic_struct.keys(): data.mus['down'] = data.mus['up']  
-      data.get_Gkw_direct() #gets Gkw from w, mu, epsilon and Sigma and X
-      data.get_Fkw_direct() #gets Fkw from w, mu, epsilon and Sigma and X
-      data.get_G_loc() #gets G_loc from Gkw
+        get_n(data)
     else:
       def func(var, data):
         mu = var[0]
@@ -597,21 +601,31 @@ class supercond_hubbard:
         n= data[1] 
         dt.mus['up'] = mu
         if 'down' in dt.fermionic_struct.keys(): dt.mus['down'] = dt.mus['up']
-        dt.get_Gkw_direct() #gets Gkw from w, mu, epsilon and Sigma and X
-        dt.get_Fkw_direct() #gets Fkw from w, mu, epsilon and Sigma and X
-        dt.get_G_loc() #gets G_loc from Gkw
-        dt.get_n_from_G_loc()     
-        #print "funcvalue: ",-abs(n - dt.ns['up'])  
+        get_n(dt)        #print "funcvalue: ",-abs(n - dt.ns['up'])  
         return 1.0-abs(n - dt.ns['up'])  
       mpi.barrier()
-      varbest, funcvalue, iterations = amoeba(var=[data.mus['up']],
+
+      guesses = [data.mus['up'], 0.0, -0.1, -0.3, -0.4, -0.5, -0.7, 0.3, 0.5, 0.7]
+      found = False  
+      for l in range(len(guesses)):
+        varbest, funcvalue, iterations = amoeba(var=[guesses[l]],
                                               scale=[0.01],
                                               func=func, 
                                               data = [data, n],
                                               itmax=30,
                                               ftolerance=1e-2,
                                               xtolerance=1e-2)
-      if mpi.is_master_node():
+        if (varbest[0]>-0.8 and varbest[0]<0.3) and (abs(funcvalue-1.0)<1e-2): #change the bounds for large doping
+          found = True 
+          break 
+        if l+1 == len(guesses):
+          print "mu search FAILED: keeping mu unchanged. better luck next iteration."
+          data.mus['up'] = guesses[0]
+          if 'down' in data.fermionic_struct.keys(): data.mus['down'] = data.mus['up']
+          get_n(data)
+
+             
+      if mpi.is_master_node() and found:
         print "mu best: ", varbest
         print "1-abs(diff n - data.n): ", funcvalue
         print "iterations used: ", iterations
