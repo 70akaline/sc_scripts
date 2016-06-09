@@ -199,7 +199,7 @@ class mixer:
   #  self.mq = ratio*self.mq_old + (1.0-ratio)*self.mq()
 
   def mix_lattice_gf(self, ratio):
-    for key in self.mq.keys():
+    for key in self.mq().keys():
       self.mq()[key][:,:,:] = ratio*self.mq_old[key][:,:,:] + (1.0-ratio)*self.mq()[key][:,:,:]
 
   #def mix_dictionary(self, ratio):
