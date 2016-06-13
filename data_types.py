@@ -208,10 +208,10 @@ def block_latt_FT(Qktau, beta, ntau, n_iw, nk, statistic='Fermion'):
     Qkw[key] = mats_freq.latt_FT(Qktau[key], beta, ntau, n_iw, nk, statistic)
   return Qkw 
 
-def block_latt_inverse_FT(Qkw, beta, ntau, n_iw, nk, statistic='Fermion'):
+def block_latt_inverse_FT(Qkw, beta, ntau, n_iw, nk, statistic='Fermion', use_IBZ_symmetry = True, fit_tail = False):
   Qktau = {}
   for key in Qkw.keys():
-    Qktau[key] = mats_freq.latt_inverse_FT(Qkw[key], beta, ntau, n_iw, nk, statistic)
+    Qktau[key] = mats_freq.latt_inverse_FT(Qkw[key], beta, ntau, n_iw, nk, statistic, use_IBZ_symmetry, fit_tail)
   return Qktau 
 
 #--------------------------------------------------------------------------#

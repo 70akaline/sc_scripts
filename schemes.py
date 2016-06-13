@@ -533,7 +533,7 @@ class supercond_hubbard:
     if not frozen_boson: data.get_Pqnu()
 
   class cautionary(GW.cautionary): #makes sure divergence in propagators is avoided. safe margin needs to be provided
-    def __init__(self, ms0=0.001, ccpower=2.0, ccrelax=1, refresh_X=False, frozen_boson=False):
+    def __init__(self, ms0=0.000001, ccpower=2.0, ccrelax=1, refresh_X=False, frozen_boson=False):
       print "initializing supercond cautionary"
       edmft.cautionary.__init__(self,ms0, ccpower, ccrelax)
       self.frozen_boson = frozen_boson
