@@ -190,12 +190,10 @@ class mats_freq:
       for kyi in range(max_kyi):
         counter += 1 
         if counter % mpi.size != mpi.rank: continue
-        for wi in range(nw):
-          g.data[wi,0,0] = Qkw[wi,kxi,kyi]
+        g.data[:,0,0] = Qkw[:,kxi,kyi]
         if fit_tail: fit_fermionic_gf_tail(g) ############# !!!!!!!!!! add the bosonic option
         gtau << InverseFourier(g)
-        for taui in range(ntau):   
-          Qktau[taui,kxi,kyi] = gtau.data[taui,0,0]
+        Qktau[:,kxi,kyi] = gtau.data[:,0,0]
     Qktau[:,:,:] = mpi.all_reduce(0, Qktau, 0)
     if use_IBZ_symmetry: 
       for taui in range(ntau):
@@ -327,6 +325,10 @@ class function_applicators: #fill with a scalar function, or do a simple manipul
         local_part += Q[kx,ky]
     local_part /= nkx*nky      
     Q -= local_part 
+
+  @staticmethod
+  def subtract_loc_from_k_dependent(Q):
+    numpy.transpose(Q)[:] -= numpy.sum(Q, axis=(1,2))/nk**2
 
 ################################ DATA ##########################################
 
@@ -895,6 +897,10 @@ import itertools
 from formulae import bubble
 from impurity_solvers import fit_and_remove_constant_tail
 from impurity_solvers import fit_fermionic_gf_tail
+from optimized_latt_ft import temporal_FT
+from optimized_latt_ft import temporal_inverse_FT
+from optimized_latt_ft import spatial_FT
+from optimized_latt_ft import spatial_inverse_FT
 class GW_data(edmft_data):
   def __init__(self, n_iw = 100, 
                      ntau = None,
@@ -962,6 +968,7 @@ class GW_data(edmft_data):
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: func[U](self.Sigmakw[U][i,kx,ky], self.G0kw[U][i,kx,ky]) )
 
   def get_Gkw_direct(self, func):
+    print "GW_data.get_Gkw_direct"
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: func[U](self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky]) )
 
   def get_G_loc_from_func_direct(self, func):
@@ -978,6 +985,96 @@ class GW_data(edmft_data):
 
   def get_Wtildeqnu(self):
     self.get_q_dependent(self.Wtildeqnu, lambda A,i,qx,qy: self.Wqnu[A][i,qx,qy] - self.W_loc_iw[A].data[i,0,0] )    
+
+  def optimized_get_Gkw(self,  func=None): #func here has no purpose
+    for U in self.fermionic_struct.keys():
+      numpy.transpose(self.Gkw[U])[:] = self.iws[:]
+      self.Gkw[U][:,:,:] += self.mus[U]
+      self.Gkw[U][:,:,:] -= self.epsilonk[U][:,:]
+      self.Gkw[U] -= self.Sigmakw[U]
+      self.Gkw[U] **= -1.0
+
+  def optimized_get_G_loc(self,  func=None): #func here has no purpose
+    for U in self.fermionic_struct.keys():
+      self.G_loc_iw[U].data[:,0,0] = numpy.sum(self.Gkw[U],axis=(1,2))/self.n_k**2
+
+  def optimized_get_Gtildekw(self,  func=None): #func here has no purpose
+    for U in self.fermionic_struct.keys():
+      self.Gtildekw[U][:,:,:] = self.Gkw[U][:,:,:]
+      numpy.transpose(self.Gtildekw[U])[:] -= self.G_loc_iw[U].data[:,0,0]
+
+  def optimized_get_Wqnu(self,  func=None): #func here has no purpose
+    for A in self.bosonic_struct.keys():
+      self.Wqnu[A][:,:,:] = self.Jq[A][:,:] / (  1.0 - self.Jq[A][:,:]*self.Pqnu[A][:,:,:] )
+
+  def optimized_get_W_loc(self,  func=None): #func here has no purpose
+    for A in self.bosonic_struct.keys():
+      self.W_loc_iw[A].data[:,0,0] = numpy.sum(self.Wqnu[A],axis=(1,2))/self.n_q**2
+
+  def optimized_get_Wtildeqnu(self,  func=None): #func here has no purpose
+    for A in self.bosonic_struct.keys():
+      self.Wtildeqnu[A][:,:,:] = self.Wqnu[A][:,:,:]
+      numpy.transpose(self.Wtildeqnu[A])[:] -= self.W_loc_iw[A].data[:,0,0]
+
+  def optimized_get_Gtildeijtau(self, N_cores=1):
+    self.Gtildektau = {}
+    self.Gtildeijtau = {}
+    for U in self.fermionic_struct.keys():
+      self.Gtildektau[U] = temporal_inverse_FT(self.Gtildekw[U], self.beta, self.ntau, self.n_iw, self.n_k, statistic='Fermion', use_IBZ_symmetry = True, fit_tail = False, N_cores=N_cores)
+      self.Gtildeijtau[U] = spatial_inverse_FT(self.Gtildektau[U], N_cores=N_cores)
+
+  def optimized_get_Wtildeijtau(self, N_cores=1):
+    self.Wtildeqtau = {}
+    self.Wtildeijtau = {}
+    for A in self.bosonic_struct.keys():
+      self.Wtildeqtau[A] = temporal_inverse_FT(self.Wtildeqnu[A], self.beta, self.ntau, self.n_iw, self.n_k, statistic='Boson', use_IBZ_symmetry = True, fit_tail = False, N_cores=N_cores)
+      self.Wtildeijtau[A] = spatial_inverse_FT(self.Wtildeqtau[A], N_cores=N_cores)
+
+  def optimized_get_Sigmakw(self, m = {'0': 1, '1': 1}, p = {'0': 1, '1': 1}, su2_symmetry = True, N_cores = 1):
+    self.Wtildeeffijtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
+    for A in self.bosonic_struct.keys():       
+      self.Wtildeeffijtau += m[A]*p[A]*self.Wtildeijtau[A]
+    self.Sigmaijtau = {}
+    self.Sigmaktau = {}
+    for U in self.fermionic_struct.keys():
+      if su2_symmetry and (U != 'up'): continue
+      self.Sigmaijtau[U] = - self.Gtildeijtau[U][:,:,:] * self.Wtildeeffijtau[::-1,:,:]
+      self.Sigmaktau[U] = spatial_FT(self.Sigmaijtau[U], N_cores=N_cores)
+      self.Sigmakw[U][:,:,:] = temporal_FT(self.Sigmaktau[U], self.beta, self.ntau, self.n_iw, self.n_k, statistic='Fermion', use_IBZ_symmetry = True, N_cores=N_cores)
+      numpy.transpose(self.Sigmakw[U])[:] += self.Sigma_loc_iw[U].data[:,0,0]
+    if su2_symmetry and ('down' in self.fermionic_struct.keys()):
+      self.Sigmakw['down'][:,:,:] = self.Sigmakw['up'][:,:,:]
+       
+  def optimized_get_Pqnu(self, su2_symmetry = True, N_cores = 1):
+    self.Pijtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
+    self.Pqtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
+    for U in self.fermionic_struct.keys():
+      if su2_symmetry and (U != 'up'): continue
+      self.Pijtau += - self.Gtildeijtau[U][:,:,:] * self.Gtildeijtau[U][::-1,:,:]
+      self.Pqtau += spatial_FT(self.Pijtau, N_cores=N_cores)
+    if su2_symmetry:
+      self.Pqtau *= 2.0 
+    Pqnu = temporal_FT(self.Pqtau, self.beta, self.ntau, self.n_iw, self.n_k, statistic='Boson', use_IBZ_symmetry = True, N_cores=N_cores)
+    for A in self.bosonic_struct.keys():
+      self.Pqnu[A][:,:,:] = Pqnu
+      numpy.transpose(self.Pqnu[A])[:] += self.P_loc_iw[A].data[:,0,0]
+
+  def patch_optimized(self):
+    self.get_Gkw_direct = self.optimized_get_Gkw
+    self.get_G_loc = self.optimized_get_G_loc
+    self.get_Gtildekw = self.optimized_get_Gtildekw
+    self.get_Wqnu_from_func = self.optimized_get_Wqnu
+    self.get_W_loc = self.optimized_get_W_loc
+    self.get_Wtildeqnu = self.optimized_get_Wtildeqnu
+
+  def unpatch_optimized(self):
+    self.get_Gkw_direct = lambda func=None: self.__class__.get_Gkw_direct(self, func)
+    self.get_G_loc = lambda:  fermionic_data.get_G_loc(self)
+    self.get_Gtildekw = lambda:  GW_data.get_Gtildekw(self)
+    self.get_Wqnu_from_func = lambda func:  GW_data.get_Wqnu_from_func(self, func)
+    self.get_W_loc = lambda:  bosonic_data.get_W_loc(self)
+    self.get_Wtildeqnu = lambda:  GW_data.get_Wtildeqnu(self)
+
 
   def lattice_general_wrapper(self, i, kxi, kyi, key, g, statistic = 'Boson'):
     if kxi>=self.n_k: kxi -= self.n_k  
@@ -1098,9 +1195,12 @@ class GW_data(edmft_data):
                   su2_symmetry=su2_symmetry )
       self.Pqnu = block_latt_FT(self.Pqtau, self.beta, self.ntau, self.n_iw, self.n_k, statistic='Boson')
     for A in self.bosonic_struct.keys():
-      for nui in (range(self.nnu) if nui_list==[] else nui_list):
-        function_applicators.subtract_loc_from_k_dependent(self.Pqnu[A][nui,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
-        self.Pqnu[A][nui,:,:] += self.P_loc_iw[A].data[nui,0,0]
+      # subtract the local part
+      numpy.transpose(self.Pqnu[A])[:] -= numpy.sum(Pqnu[A], axis=(1,2))/self.n_q**2 # cautionary measure - at this point the local part should be zero
+      numpy.transpose(self.Pqnu[A])[:] += self.P_loc_iw[A].data[:,0,0]
+
+      #for nui in (range(self.nnu) if nui_list==[] else nui_list):
+      #  function_applicators.subtract_loc_from_k_dependent(self.Pqnu[A][nui,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
 
   def get_Sigma_loc_from_local_bubble(self, imtime = False, Sigma = None, ising_decoupling=False, su2_symmetry=True, wi_list = [],  Lambda = lambda A, wi, nui: 1.0):
     print "get_Sigma_loc_from_local_bubble"
@@ -1448,10 +1548,11 @@ class supercond_data(GW_data):
   def get_Gkw(self):
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: dyson.superconducting.G_from_Sigma_G0_and_X(self.Sigmakw[U][i,kx,ky], self.G0kw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
 
-  def get_Gkw_direct(self):
+  def get_Gkw_direct(self, func=None): #func plays no role here
+    print "supercond_data.get_Gkw_direct"
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: dyson.superconducting.G_from_w_mu_epsilon_Sigma_and_X(self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
 
-  def get_G_loc_from_func_direct(self):
+  def get_G_loc_from_func_direct(self, func=None):# func plays no role here
     self.sum_k_dependent(self.G_loc_iw, lambda U, i, kx, ky: dyson.superconducting.G_from_w_mu_epsilon_Sigma_and_X(self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
 
   def get_Fkw(self):
@@ -1459,6 +1560,73 @@ class supercond_data(GW_data):
 
   def get_Fkw_direct(self):
     self.get_k_dependent(self.Fkw, lambda U,i,kx,ky: dyson.superconducting.F_from_w_mu_epsilon_Sigma_and_X(self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
+
+  def optimized_get_Gkw(self, func=None): #func here has no purpose
+    print "supercond_data.optimized_get_Gkw"
+    for U in self.fermionic_struct.keys():
+      gkw = copy.deepcopy(self.Gkw[U]) 
+      numpy.transpose(gkw)[:] = self.iws[:]
+      gkw[:,:,:] += self.mus[U]
+      gkw[:,:,:] -= self.epsilonk[U][:,:]
+      gkw -= self.Sigmakw[U]
+      self.Gkw[U] = numpy.conj(gkw)/(abs(gkw)**2.0 + abs(self.Xkw[U])**2.0)
+
+  def optimized_get_Fkw(self, func=None): #func here has no purpose
+    for U in self.fermionic_struct.keys():
+      gkw = copy.deepcopy(self.Gkw[U])
+      numpy.transpose(gkw)[:] = self.iws[:]
+      gkw[:,:,:] += self.mus[U]
+      gkw[:,:,:] -= self.epsilonk[U][:,:]
+      gkw -= self.Sigmakw[U]
+      self.Fkw[U] = -self.Xkw[U]/(abs(gkw)**2.0 + abs(self.Xkw[U])**2.0)
+
+  def optimized_get_Fijtau(self, N_cores=1, su2_symmetry = True):
+    self.Fktau = {}
+    self.Fijtau = {}
+    for U in self.fermionic_struct.keys():
+      if su2_symmetry and (U != 'up'): continue
+      self.Fktau[U] = temporal_inverse_FT(self.Fkw[U], self.beta, self.ntau, self.n_iw, self.n_k, statistic='Fermion', use_IBZ_symmetry = True, fit_tail = False, N_cores=N_cores)
+      self.Fijtau[U] = spatial_inverse_FT(self.Fktau[U], N_cores=N_cores)
+    if su2_symmetry and ('down' in self.fermionic_struct.keys()):
+      self.Fijtau['down'] = self.Fijtau['up']
+
+  def optimized_get_Xkw(self, m = {'0': 1, '1': 1}, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1):
+    self.Wtildeeffijtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
+    for A in self.bosonic_struct.keys():       
+      self.Wtildeeffijtau += m[A]*p[A]*self.Wtildeijtau[A]
+    self.Xijtau = {}
+    self.Xktau = {}
+    for U in self.fermionic_struct.keys():
+      if su2_symmetry and (U != 'up'): continue
+      self.Xijtau[U] = - self.Fijtau[U][:,:,:] * self.Wtildeeffijtau[::-1,:,:]
+      self.Xktau[U] = spatial_FT(self.Xijtau[U], N_cores=N_cores)
+      self.Xkw[U][:,:,:] = temporal_FT(self.Xktau[U], self.beta, self.ntau, self.n_iw, self.n_k, statistic='Fermion', use_IBZ_symmetry = True, N_cores=N_cores)
+    if su2_symmetry and ('down' in self.fermionic_struct.keys()):
+      self.Xkw['down'][:,:,:] = self.Xkw['up'][:,:,:]
+
+  def optimized_get_Pqnu(self, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1):
+    GW_data.optimized_get_Pqnu(self,su2_symmetry, N_cores)
+
+    self.Qijtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
+    self.Qqtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
+    for U in self.fermionic_struct.keys():
+      if su2_symmetry and (U != 'up'): continue
+      self.Qijtau += - self.Fijtau[U][:,:,:] * self.Fijtau[::-1,:,:]
+      self.Qqtau += spatial_FT(self.Qijtau, N_cores=N_cores)
+    if su2_symmetry:
+      self.Qqtau *= 2.0 
+    Qqnu = temporal_FT(self.Qqtau, self.beta, self.ntau, self.n_iw, self.n_k, statistic='Boson', use_IBZ_symmetry = True, N_cores=N_cores)
+    for A in self.bosonic_struct.keys():
+      self.Qqnu[A][:,:,:] = p[A] * Qqnu
+      self.Pqnu[A] += self.Qqnu[A]
+
+  def patch_optimized(self):
+    GW_data.patch_optimized(self) 
+    self.get_Fkw_direct = self.optimized_get_Fkw
+
+  def unpatch_optimized(self):
+    GW_data.unpatch_optimized(self)
+    self.get_Fkw_direct = lambda: self.__class__.get_Fkw_direct(self)
 
   def get_Xkw(self, imtime = False, simple = False, use_IBZ_symmetry = False, ising_decoupling=False, su2_symmetry=True, wi_list = [],  Lambda = lambda A, wi, nui: 1.0):
     assert self.n_k == self.n_q, "ERROR: for bubble calcuation it is necessary that bosonic and fermionic quantities have the same discretization of IBZ"
