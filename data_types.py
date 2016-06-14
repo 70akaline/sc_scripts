@@ -1597,7 +1597,7 @@ class supercond_data(GW_data):
       self.Fijtau['down'] = self.Fijtau['up']
 
   def optimized_get_Xkw(self, ising = False, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1): #always call Xkw first, Pqnu second!!!
-    self.optimized_get_Fijtau(N_cores, su2_symmetry):
+    self.optimized_get_Fijtau(N_cores, su2_symmetry)
     if ising:
       m = {'0': 1, '1': 1}
     else:
