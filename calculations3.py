@@ -39,7 +39,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             n_ks = [24], 
                             w_cutoff = 20.0,
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
-                            trilex = False, imtime = True,
+                            trilex = False, imtime = True, use_optimized = True, N_cores = 1
                             use_cthyb=True, n_cycles=100000, max_time=10*60, accuracy = 1e-4,
                             print_non_local_frequency = 5,
                             initial_guess_archive_name = '', suffix=''):
@@ -99,6 +99,9 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     dt.__class__=supercond_trilex_data
     dt.promote(dt.n_iw/2, dt.n_iw/2)
 
+  if use_optimized:
+    dt.patch_optimized()
+
   #init convergence and cautionary measures
   convergers = [ converger( monitored_quantity = lambda: dt.P_loc_iw,
                             accuracy=accuracy, 
@@ -138,14 +141,24 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     h = p[5]
 
     
-    dt.get_Sigmakw = lambda: dt.__class__.get_Sigmakw(dt, ising_decoupling = ising, imtime = imtime)
+    dt.get_Sigmakw = lambda: dt.__class__.get_Sigmakw(dt, ising_decoupling = ising, imtime = imtime)\
+                     if (not use_optimized) or (not imtime) else\
+                     lambda: dt.__class__.optimized_get_Sigmakw(dt, ising_decoupling = ising, N_cores=N_cores)
     dt.get_Xkw = lambda: dt.__class__.get_Xkw(dt, ising_decoupling = ising, imtime = imtime)
+                     if (not use_optimized) or (not imtime) else\
+                     lambda: dt.__class__.optimized_get_Xkw(dt, ising_decoupling = ising, , N_cores=N_cores)
     dt.get_Pqnu = lambda: dt.__class__.get_Pqnu(dt, imtime = imtime)
+                     if (not use_optimized) or (not imtime) else\
+                     lambda: dt.__class__.optimized_get_Pqnu(dt, N_cores=N_cores)
+
     dt.get_Sigma_loc_from_local_bubble = lambda: dt.__class__.get_Sigma_loc_from_local_bubble(dt, ising_decoupling = ising, imtime = imtime)
     dt.get_P_loc_from_local_bubble = lambda: dt.__class__.get_P_loc_from_local_bubble(dt, imtime = imtime)
     if ((h==0.0)or(h==0))and (not refresh_X):
       dt.get_Xkw = lambda: None
       dt.get_Pqnu = lambda: GW_data.get_Pqnu(dt, imtime = imtime)
+                     if (not use_optimized) or (not imtime) else\
+                     lambda: GW_data.optimized_get_Pqnu(dt, N_cores=N_cores)
+
 
     if nk!=old_nk:
       dt.change_ks(IBZ.k_grid(nk))

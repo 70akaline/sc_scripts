@@ -529,7 +529,7 @@ class supercond_hubbard:
     data.get_Sigma_loc_from_local_bubble()
     if not frozen_boson: data.get_P_loc_from_local_bubble()
     data.get_Sigmakw()
-    data.get_Xkw()
+    data.get_Xkw() #if using optimized scheme make sure this is the order of calls (Sigmakw, Xkw then Pqnu)
     if not frozen_boson: data.get_Pqnu()
 
   class cautionary(GW.cautionary): #makes sure divergence in propagators is avoided. safe margin needs to be provided

@@ -1030,7 +1030,13 @@ class GW_data(edmft_data):
       self.Wtildeqtau[A] = temporal_inverse_FT(self.Wtildeqnu[A], self.beta, self.ntau, self.n_iw, self.n_k, statistic='Boson', use_IBZ_symmetry = True, fit_tail = False, N_cores=N_cores)
       self.Wtildeijtau[A] = spatial_inverse_FT(self.Wtildeqtau[A], N_cores=N_cores)
 
-  def optimized_get_Sigmakw(self, m = {'0': 1, '1': 1}, p = {'0': 1, '1': 1}, su2_symmetry = True, N_cores = 1):
+  def optimized_get_Sigmakw(self, ising = False, p = {'0': 1, '1': 1}, su2_symmetry = True, N_cores = 1): #ALWAYS CALL Sigmakw first, Pqnu second
+    self.optimized_get_Gtildeijtau(N_cores=N_cores)
+    self.optimized_get_Wtildeijtau(N_cores=N_cores)
+    if ising:
+      m = {'0': 1, '1': 1}
+    else:
+      m = {'0': 1, '1': 3}
     self.Wtildeeffijtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
     for A in self.bosonic_struct.keys():       
       self.Wtildeeffijtau += m[A]*p[A]*self.Wtildeijtau[A]
@@ -1590,7 +1596,12 @@ class supercond_data(GW_data):
     if su2_symmetry and ('down' in self.fermionic_struct.keys()):
       self.Fijtau['down'] = self.Fijtau['up']
 
-  def optimized_get_Xkw(self, m = {'0': 1, '1': 1}, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1):
+  def optimized_get_Xkw(self, ising = False, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1): #always call Xkw first, Pqnu second!!!
+    self.optimized_get_Fijtau(N_cores, su2_symmetry):
+    if ising:
+      m = {'0': 1, '1': 1}
+    else:
+      m = {'0': 1, '1': 3}
     self.Wtildeeffijtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
     for A in self.bosonic_struct.keys():       
       self.Wtildeeffijtau += m[A]*p[A]*self.Wtildeijtau[A]
