@@ -1555,7 +1555,7 @@ class supercond_data(GW_data):
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: dyson.superconducting.G_from_Sigma_G0_and_X(self.Sigmakw[U][i,kx,ky], self.G0kw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
 
   def get_Gkw_direct(self, func=None): #func plays no role here
-    print "supercond_data.get_Gkw_direct"
+    #print "supercond_data.get_Gkw_direct"
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: dyson.superconducting.G_from_w_mu_epsilon_Sigma_and_X(self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
 
   def get_G_loc_from_func_direct(self, func=None):# func plays no role here
@@ -1568,7 +1568,7 @@ class supercond_data(GW_data):
     self.get_k_dependent(self.Fkw, lambda U,i,kx,ky: dyson.superconducting.F_from_w_mu_epsilon_Sigma_and_X(self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
 
   def optimized_get_Gkw(self, func=None): #func here has no purpose
-    print "supercond_data.optimized_get_Gkw"
+    #print "supercond_data.optimized_get_Gkw"
     for U in self.fermionic_struct.keys():
       gkw = copy.deepcopy(self.Gkw[U]) 
       numpy.transpose(gkw)[:] = self.iws[:]
