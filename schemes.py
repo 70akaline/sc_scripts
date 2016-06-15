@@ -197,8 +197,8 @@ class GW:
         for nui in range(data.m_to_nui(-3),data.m_to_nui(3)): #careful with the range
           for qxi in range(data.n_q):
             for qyi in range(data.n_q):
-              if  ( data.Pqnu[A][i,qxi,qyi].real < (data.Jq[A][qxi,qyi])**(-1.0) ) and (data.Jq[A][qxi,qyi]<0.0) : #here we assume P is negative
-                data.Pqnu[A][i,qxi,qyi] = prefactor*(data.Jq[A][qxi,qyi])**(-1.0) + 1j*data.Pqnu[A][i,qxi,qyi].imag
+              if  ( data.Pqnu[A][nui,qxi,qyi].real < (data.Jq[A][qxi,qyi])**(-1.0) ) and (data.Jq[A][qxi,qyi]<0.0) : #here we assume P is negative
+                data.Pqnu[A][nui,qxi,qyi] = prefactor*(data.Jq[A][qxi,qyi])**(-1.0) + 1j*data.Pqnu[A][nui,qxi,qyi].imag
                 clipped = True        
               #if  (data.Pqnu[A][i,qxi,qyi].real > 0.0): #here we assume P is negative
               #  #print "CLIPPING: P[",A,"]: ", data.Pqnu[A][i,qxi,qyi].real,"safe_value: ", self.safe_value[A]
