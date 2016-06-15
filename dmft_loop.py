@@ -80,9 +80,13 @@ class dmft_loop:
       if loop_index!=0 or not skip_self_energy_on_first_iteration: 
         self.selfenergy(data=data)
 
+      t1a = time()
+
       if mix_after_selfenergy:
         for mixer in self.mixers:
           mixer.mix(loop_index)
+
+      t1b = time()
 
       if not (self.cautionary is None):
         data.err = self.cautionary.check_and_fix(data)        
@@ -117,12 +121,18 @@ class dmft_loop:
           c = False
       converged = c #here we are checking that all have converged, not that at least one has converged
 
+      t7 = time()
+
       if not converged and not mix_after_selfenergy:
         for mixer in self.mixers:
           mixer.mix(loop_index)
 
+      t8 = time()
+
       for monitor in self.monitors:
         monitor.monitor()
+
+      t9 = time()
 
       if mpi.is_master_node():
         data.dump_errors(suffix='-%s'%loop_index)
@@ -134,7 +144,7 @@ class dmft_loop:
         A['max_index'] = loop_index
         del A
 
-      t7 = time()
+      t10 = time()
 
       if mpi.is_master_node():
         self.print_timings(t1,t2,t3,t4,t5,t6,t7)
@@ -157,12 +167,18 @@ class dmft_loop:
 
   def print_timings(self, t1,t2,t3,t4,t5,t6,t7):
     print "########### DMFT LOOP timings #########"
-    print "selfenergy took: ", t2-t1, " secs"
+    print "selfenergy took: ", t1a2-t1, " secs"
+    print "mixing took: ", t1b-t1a, " secs"
+    print "cautionary took: ", t2-t1b, " secs"
     print "lattice took: ", t3-t2, " secs"
     print "pre impurity took: ", t4-t3, " secs"
     print "impurity took: ", t5-t4, " secs"
     print "post impurity took: ", t6-t5, " secs"
-    print "whole iteration took: ", t7-t1, " secs"
+    print "convergence check took: ", t7-t6, " secs"
+    print "second mixing took: ", t8-t7, " secs"
+    print "monitors took: ", t9-t8, " secs"
+    print "dumping took: ", t10-t9, " secs"
+    print "whole iteration took: ", t10-t1, " secs"
     print "#######################################"
 
 

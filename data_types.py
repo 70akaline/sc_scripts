@@ -1040,7 +1040,7 @@ class GW_data(edmft_data):
       m = {'0': 1, '1': 1}
     else:
       m = {'0': 1, '1': 3}
-    self.Wtildeeffijtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
+    self.Wtildeeffijtau = numpy.zeros((self.ntau,self.n_q,self.n_q), dtype=numpy.complex_)
     for A in self.bosonic_struct.keys():       
       self.Wtildeeffijtau += m[A]*p[A]*self.Wtildeijtau[A]
     self.Sigmaijtau = {}
@@ -1056,8 +1056,8 @@ class GW_data(edmft_data):
        
   def optimized_get_Pqnu(self, su2_symmetry = True, N_cores = 1):
     print "optimized get_Pqnu"
-    self.Pijtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
-    self.Pqtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
+    self.Pijtau = numpy.zeros((self.ntau,self.n_q,self.n_q),  dtype=numpy.complex_)
+    self.Pqtau = numpy.zeros((self.ntau,self.n_q,self.n_q) dtype=numpy.complex_)
     for U in self.fermionic_struct.keys():
       if su2_symmetry and (U != 'up'): continue
       self.Pijtau += - self.Gtildeijtau[U][:,:,:] * self.Gtildeijtau[U][::-1,:,:]
@@ -1466,7 +1466,7 @@ class trilex_data(GW_data):
     for A in self.bosonic_struct.keys():
       for key in self.three_leg_quantities:
          #print "key: ", key, " A: ", A
-         g = numpy.zeros((nw_v_new,self.nnu))
+         g = numpy.zeros((nw_v_new,self.nnu), dtype=numpy.complex_)
          for nui_v in range(self.nnu_v):
 #           tail_pos = mats_freq.get_tail_from_numpy_array(vars(self)[key][A][:,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True)
 #           tail_neg = mats_freq.get_tail_from_numpy_array(vars(self)[key][A][::-1,nui_v], self.beta, 'Fermion', self.n_iw_f, positive_only=True) 
@@ -1479,7 +1479,7 @@ class trilex_data(GW_data):
            wrapper = lambda iw:   vars(self)[key][A][self.nw_v-1,nui_v] if iw.imag>0 else vars(self)[key][A][0,nui_v]
 
            mats_freq.change_temperature(vars(self)[key][A][:,nui_v], g[:,nui_v], self.w_vs, w_vs_new, Q_old_wrapper=wrapper)
-         g2 = numpy.zeros((nw_v_new, nnu_v_new))
+         g2 = numpy.zeros((nw_v_new, nnu_v_new), dtype=numpy.complex_)
          for wi_v in range(nw_v_new):
            tail = mats_freq.get_tail_from_numpy_array(g[wi_v,:], self.beta, 'Boson', self.n_iw_b, positive_only=True)
            wrapper = lambda iw:   tail[0]\
@@ -1607,7 +1607,7 @@ class supercond_data(GW_data):
       m = {'0': 1, '1': 1}
     else:
       m = {'0': 1, '1': 3}
-    self.Wtildeeffijtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
+    self.Wtildeeffijtau = numpy.zeros((self.ntau,self.n_q,self.n_q), dtype=numpy.complex_)
     for A in self.bosonic_struct.keys():       
       self.Wtildeeffijtau += m[A]*p[A]*self.Wtildeijtau[A]
     self.Xijtau = {}
@@ -1623,8 +1623,8 @@ class supercond_data(GW_data):
   def optimized_get_Pqnu(self, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1):
     GW_data.optimized_get_Pqnu(self,su2_symmetry, N_cores)
     print "optimized_get_Qqnu - the addition to Pqnu"
-    self.Qijtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
-    self.Qqtau = numpy.zeros((self.ntau,self.n_q,self.n_q))
+    self.Qijtau = numpy.zeros((self.ntau,self.n_q,self.n_q), dtype=numpy.complex_)
+    self.Qqtau = numpy.zeros((self.ntau,self.n_q,self.n_q), dtype=numpy.complex_)
     for U in self.fermionic_struct.keys():
       if su2_symmetry and (U != 'up'): continue
       self.Qijtau += - self.Fijtau[U][:,:,:] * self.Fijtau[::-1,:,:]
