@@ -195,7 +195,7 @@ class GW:
       prefactor = 1.0 - self.ms0 / (self.clip_counter**self.ccpower + 1.0)
 
       for A in data.bosonic_struct.keys():
-        res = numpy.less_equal(data.Pqnu[A][:,:,:].real, (data.Jq[A][:,:])**(-1.0) ) + numpy.less_equal( data.Jq[A][:,:], numpy.zeros((data.n_q, data.n_q)))
+        res = numpy.less_equal(data.Pqnu[A][:,:,:].real, (data.Jq[A][:,:])**(-1.0) ) * numpy.less_equal( data.Jq[A][:,:], numpy.zeros((data.n_q, data.n_q)))
         data.Pqnu[A][:,:,:] = (1-res[:,:,:])*data.Pqnu[A][:,:,:] + res[:,:,:]*(data.Jq[A][:,:])**(-1.0)*prefactor
         if not (numpy.sum(res) == 0): clipped = True                     
 
@@ -210,6 +210,7 @@ class GW:
               #  #print "CLIPPING: P[",A,"]: ", data.Pqnu[A][i,qxi,qyi].real,"safe_value: ", self.safe_value[A]
               #  data.Pqnu[A][i,qxi,qyi] = 0.0 +  1j*data.Pqnu[A][i,qxi,qyi].imag   
       if clipped: 
+        print "GW.cautionary.check_and_fix: CLIPPED!!"
         self.clip_counter += 1 
       else: 
         self.clip_counter = self.clip_counter/self.ccrelax 

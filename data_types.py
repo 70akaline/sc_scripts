@@ -1033,9 +1033,9 @@ class GW_data(edmft_data):
       self.Wtildeijtau[A] = spatial_inverse_FT(self.Wtildeqtau[A], N_cores=N_cores)
 
   def optimized_get_Sigmakw(self, ising_decoupling = False, p = {'0': 1, '1': 1}, su2_symmetry = True, N_cores = 1): #ALWAYS CALL Sigmakw first, Pqnu second
-    print "optimized get_Sigmakw"
     self.optimized_get_Gtildeijtau(N_cores=N_cores)
     self.optimized_get_Wtildeijtau(N_cores=N_cores)
+    print "optimized get_Sigmakw"
     if ising_decoupling:
       m = {'0': 1, '1': 1}
     else:
