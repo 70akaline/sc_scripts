@@ -1057,7 +1057,7 @@ class GW_data(edmft_data):
   def optimized_get_Pqnu(self, su2_symmetry = True, N_cores = 1):
     print "optimized get_Pqnu"
     self.Pijtau = numpy.zeros((self.ntau,self.n_q,self.n_q),  dtype=numpy.complex_)
-    self.Pqtau = numpy.zeros((self.ntau,self.n_q,self.n_q) dtype=numpy.complex_)
+    self.Pqtau = numpy.zeros((self.ntau,self.n_q,self.n_q), dtype=numpy.complex_)
     for U in self.fermionic_struct.keys():
       if su2_symmetry and (U != 'up'): continue
       self.Pijtau += - self.Gtildeijtau[U][:,:,:] * self.Gtildeijtau[U][::-1,:,:]
