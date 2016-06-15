@@ -193,13 +193,19 @@ class GW:
       #operates directly on data.P_loc_iw as this is the one that will be used in chiqnu calculation
       clipped = edmft.cautionary.check_and_fix(self, data, finalize=False)
       prefactor = 1.0 - self.ms0 / (self.clip_counter**self.ccpower + 1.0)
+
       for A in data.bosonic_struct.keys():
-        for nui in range(data.m_to_nui(-3),data.m_to_nui(3)): #careful with the range
-          for qxi in range(data.n_q):
-            for qyi in range(data.n_q):
-              if  ( data.Pqnu[A][nui,qxi,qyi].real < (data.Jq[A][qxi,qyi])**(-1.0) ) and (data.Jq[A][qxi,qyi]<0.0) : #here we assume P is negative
-                data.Pqnu[A][nui,qxi,qyi] = prefactor*(data.Jq[A][qxi,qyi])**(-1.0) + 1j*data.Pqnu[A][nui,qxi,qyi].imag
-                clipped = True        
+        res = numpy.less_equal(data.Pqnu[A][:,:,:].real, (data.Jq[A][:,:])**(-1.0) ) and numpy.less_equal( data.Jq[A][:,:], numpy.zeros((data.n_q, data.n_q)))
+        data.Pqnu[A][:,:,:] = (not res[:,:,:])*data.Pqnu[A][:,:,:] + res[:,:,:]*(data.Jq[A][:,:])**(-1.0)*prefactor
+        is not (numpy.sum(res) == 0): clipped = True                     
+
+      #for A in data.bosonic_struct.keys():
+      #  for nui in range(data.m_to_nui(-3),data.m_to_nui(3)): #careful with the range
+      #    for qxi in range(data.n_q):
+      #      for qyi in range(data.n_q):
+      #        if  ( data.Pqnu[A][nui,qxi,qyi].real < (data.Jq[A][qxi,qyi])**(-1.0) ) and (data.Jq[A][qxi,qyi]<0.0) : #here we assume P is negative
+      #          data.Pqnu[A][nui,qxi,qyi] = prefactor*(data.Jq[A][qxi,qyi])**(-1.0) + 1j*data.Pqnu[A][nui,qxi,qyi].imag
+      #          clipped = True        
               #if  (data.Pqnu[A][i,qxi,qyi].real > 0.0): #here we assume P is negative
               #  #print "CLIPPING: P[",A,"]: ", data.Pqnu[A][i,qxi,qyi].real,"safe_value: ", self.safe_value[A]
               #  data.Pqnu[A][i,qxi,qyi] = 0.0 +  1j*data.Pqnu[A][i,qxi,qyi].imag   
