@@ -171,7 +171,7 @@ class dmft_loop:
     labels = ["selfenergy", "mixing", "cautionary", "lattice", "pre impurity", "impurity", "post impurity", "convergence check", "second mixing"]
     print "########### DMFT LOOP timings #########"
     for l in range(len(labels)):
-      print label, " took: ", times[l+1]-times[l]," secs"
+      print labels[l], " took: ", times[l+1]-times[l]," secs"
     print "whole iteration took: ", times[-1]-times[0], " secs"
     print "#######################################"
 
