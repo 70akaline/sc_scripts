@@ -52,7 +52,7 @@ class dmft_loop:
 
   def run(self, data, 
                 n_loops_max=100, n_loops_min=5, 
-                print_non_local=1, print_three_leg=1,
+                print_local=1, print_impurity_input=1, print_non_local=1, print_three_leg=1,
                 skip_self_energy_on_first_iteration=False,  #1 every iteration, 2 every second, -2 never (except for final)
                 mix_after_selfenergy = False, 
                 last_iteration_err_is_allowed = 15 ):
@@ -103,7 +103,9 @@ class dmft_loop:
 
       self.pre_impurity(data=data)
 
-      if mpi.is_master_node():
+      times.append(time())
+
+      if mpi.is_master_node() and ((loop_index + 1) % print_impurity_input==0):
         data.dump_impurity_input(suffix='-%s'%loop_index)    
 
       times.append(time())
@@ -139,7 +141,7 @@ class dmft_loop:
       if mpi.is_master_node():
         data.dump_errors(suffix='-%s'%loop_index)
         data.dump_scalar(suffix='-%s'%loop_index)
-        data.dump_local(suffix='-%s'%loop_index)
+        if (loop_index + 1) % print_local == 0: data.dump_local(suffix='-%s'%loop_index)
         if (loop_index + 1) % print_three_leg == 0: data.dump_three_leg(suffix='-%s'%loop_index)
         if (loop_index + 1) % print_non_local == 0: data.dump_non_local(suffix='-%s'%loop_index)          
         A = HDFArchive(data.archive_name)
@@ -168,7 +170,7 @@ class dmft_loop:
 
 
   def print_timings(self, times):
-    labels = ["selfenergy", "mixing", "cautionary", "lattice", "pre impurity", "impurity", "post impurity", "convergence check", "second mixing"]
+    labels = ["selfenergy", "mixing", "cautionary", "lattice", "pre impurity", "dumping impurity input", "impurity", "post impurity", "convergence check", "second mixing", "monitors", "dumping"]
     print "########### DMFT LOOP timings #########"
     for l in range(len(labels)):
       print labels[l], " took: ", times[l+1]-times[l]," secs"
@@ -260,14 +262,17 @@ class converger:
     return False
 
   def check_gf(self):
-    max_diff = 0
     for key in self.struct.keys(): 
-      for a in self.struct[key]: 
-        for b in self.struct[key]: 
-          for i in range(len(self.mq()[key].data[:,a,b])):
-            diff = abs(self.mq()[key].data[i,a,b] - self.mq_old[key].data[i,a,b])   
-            if diff>max_diff:
-              max_diff=diff
+      diff = abs(self.mq()[key].data[:,:,:] - self.mq_old[key].data[:,:,:])        
+  
+    max_diff = max(diff)
+
+#      for a in self.struct[key]: 
+#        for b in self.struct[key]: 
+#          for i in range(len(self.mq()[key].data[:,a,b])):
+#            diff = abs(self.mq()[key].data[i,a,b] - self.mq_old[key].data[i,a,b])   
+#            if diff>max_diff:
+#              max_diff=diff
     self.diffs.append(max_diff)         
 
 class monitor:

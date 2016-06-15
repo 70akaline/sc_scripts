@@ -641,12 +641,13 @@ class supercond_hubbard:
 
    
   @staticmethod 
-  def pre_impurity(data):    
-    pass
+  def pre_impurity(data):  
+    print "supercond pre_impurity - nothing to be done"  
 
   @staticmethod 
   def post_impurity(data):
-    data.get_n_from_G_loc()
+    print "supercond post_impurity - nothing to be done"  
+    #data.get_n_from_G_loc()
 
   @staticmethod 
   def after_it_is_done(data):
