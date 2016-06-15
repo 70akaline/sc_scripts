@@ -194,7 +194,7 @@ class GW:
       clipped = edmft.cautionary.check_and_fix(self, data, finalize=False)
       prefactor = 1.0 - self.ms0 / (self.clip_counter**self.ccpower + 1.0)
       for A in data.bosonic_struct.keys():
-        for i in range(data.nnu):
+        for nui in range(data.m_to_nui(-3),data.m_to_nui(3)): #careful with the range
           for qxi in range(data.n_q):
             for qyi in range(data.n_q):
               if  ( data.Pqnu[A][i,qxi,qyi].real < (data.Jq[A][qxi,qyi])**(-1.0) ) and (data.Jq[A][qxi,qyi]<0.0) : #here we assume P is negative
@@ -555,15 +555,8 @@ class supercond_hubbard:
 
     def check_and_fix(self, data):
       for U in data.fermionic_struct.keys():
-        for n in range(data.n_iw):
-          for kxi in range(data.n_k):
-            for kyi in range(data.n_k):            
-              symSig = 0.5 * (data.Sigmakw[U][data.n_to_wi(n), kxi, kyi]+numpy.conj(data.Sigmakw[U][data.n_to_wi(0)-1-n, kxi, kyi]))
-              data.Sigmakw[U][data.n_to_wi(n), kxi, kyi] = symSig
-              data.Sigmakw[U][data.n_to_wi(0)-1-n, kxi, kyi] = numpy.conj(symSig)
-          symSig = 0.5 * (data.Sigma_loc_iw[U].data[data.n_to_wi(n), 0, 0]+numpy.conj(data.Sigma_loc_iw[U].data[data.n_to_wi(0)-1-n, 0, 0]))
-          data.Sigma_loc_iw[U].data[data.n_to_wi(n), 0, 0] = symSig
-          data.Sigma_loc_iw[U].data[data.n_to_wi(0)-1-n, 0, 0] = numpy.conj(symSig)
+          data.Sigmakw[U][:,:,:] = 0.5*( data.Sigmakw[U][:,:,:]+numpy.conj(data.Sigmakw[U][::-1,:,:]) )
+          data.Sigma_loc_iw[U].data[:,0,0] = 0.5*( data.Sigma_loc_iw[U].data[:,0,0] +numpy.conj(data.Sigma_loc_iw[U].data[::-1,0,0]) )
 
 
       self.refresh_X(data)

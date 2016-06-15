@@ -313,7 +313,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     err = dmft.run( dt,
                     n_loops_max=n_loops_max, 
                     n_loops_min=n_loops_min,
-                    print_local=print_local_frequency, print_impurity_input=( 1000 if trilex else 1 ), print_three_leg=1, print_non_local=print_non_local_frequency,
+                    print_local=print_local_frequency, print_impurity_input=( 1 if trilex else 1000 ), print_three_leg=1, print_non_local=print_non_local_frequency,
                     skip_self_energy_on_first_iteration=True,
                     mix_after_selfenergy = True, 
                     last_iteration_err_is_allowed = 18 )
