@@ -265,6 +265,9 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                           archive_name = dt.archive_name),
                  monitor( monitored_quantity = lambda: dt.mus['up'], 
                           h5key = 'mu_vs_it', 
+                          archive_name = dt.archive_name),
+                 monitor( monitored_quantity = lambda: numpy.amax(dt.Pqnu['1'][dt.m_to_nui(0),:,:]*Usp), 
+                          h5key = 'maxPspUsp_vs_it', 
                           archive_name = dt.archive_name) ]
 
     #init the dmft_loop 

@@ -262,10 +262,11 @@ class converger:
     return False
 
   def check_gf(self):
+    max_diff = 0 
     for key in self.struct.keys(): 
-      diff = abs(self.mq()[key].data[:,:,:] - self.mq_old[key].data[:,:,:])        
-  
-    max_diff = max(diff)
+      diff = abs(self.mq()[key].data[:,:,:] - self.mq_old[key].data[:,:,:])                
+      md = numpy.amax(diff)
+      if md > max_diff: max_diff = md
 
 #      for a in self.struct[key]: 
 #        for b in self.struct[key]: 
