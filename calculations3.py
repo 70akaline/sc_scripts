@@ -143,17 +143,18 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     
     dt.get_Sigmakw = lambda: dt.__class__.get_Sigmakw(dt, ising_decoupling = ising, imtime = imtime)\
                      if (not use_optimized) or (not imtime) else\
-                     lambda: dt.__class__.optimized_get_Sigmakw(dt, ising_decoupling = ising, N_cores=N_cores)
+                     lambda: GW_data.optimized_get_Sigmakw(dt, ising_decoupling = ising, N_cores=N_cores)
     dt.get_Xkw = lambda: dt.__class__.get_Xkw(dt, ising_decoupling = ising, imtime = imtime)\
                      if (not use_optimized) or (not imtime) else\
-                     lambda: dt.__class__.optimized_get_Xkw(dt, ising_decoupling = ising, N_cores=N_cores)
+                     lambda: supercond_data.optimized_get_Xkw(dt, ising_decoupling = ising, N_cores=N_cores)
     dt.get_Pqnu = lambda: dt.__class__.get_Pqnu(dt, imtime = imtime)\
                      if (not use_optimized) or (not imtime) else\
-                     lambda: dt.__class__.optimized_get_Pqnu(dt, N_cores=N_cores)
+                     lambda: supercond_data.optimized_get_Pqnu(dt, N_cores=N_cores)
 
     dt.get_Sigma_loc_from_local_bubble = lambda: dt.__class__.get_Sigma_loc_from_local_bubble(dt, ising_decoupling = ising, imtime = imtime)
     dt.get_P_loc_from_local_bubble = lambda: dt.__class__.get_P_loc_from_local_bubble(dt, imtime = imtime)
     if ((h==0.0)or(h==0))and (not refresh_X):
+      print "assigning GW_data.Pqnu because no h, no imposed X"
       dt.get_Xkw = lambda: None
       dt.get_Pqnu = lambda: GW_data.get_Pqnu(dt, imtime = imtime)\
                      if (not use_optimized) or (not imtime) else\
