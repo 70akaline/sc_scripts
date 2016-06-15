@@ -75,45 +75,47 @@ class dmft_loop:
     for loop_index in range(n_loops_max):
       if mpi.is_master_node():
         print "---------------------------- loop_index: ",loop_index,"/",n_loops_max,"---------------------------------"
-      t1 = time()
+      times = []
+     
+      times.append(time())
 
       if loop_index!=0 or not skip_self_energy_on_first_iteration: 
         self.selfenergy(data=data)
 
-      t1a = time()
+      times.append(time())
 
       if mix_after_selfenergy:
         for mixer in self.mixers:
           mixer.mix(loop_index)
 
-      t1b = time()
+      times.append(time())
 
       if not (self.cautionary is None):
         data.err = self.cautionary.check_and_fix(data)        
         if data.err and (loop_index > last_iteration_err_is_allowed):
           failed = True
 
-      t2 = time()
+      times.append(time())
 
       self.lattice(data=data)
 
-      t3 = time()
+      times.append(time())
 
       self.pre_impurity(data=data)
 
       if mpi.is_master_node():
         data.dump_impurity_input(suffix='-%s'%loop_index)    
 
-      t4 = time()
+      times.append(time())
 
       mpi.barrier()
       self.impurity(data=data)
 
-      t5 = time()
+      times.append(time())
 
       self.post_impurity(data=data)
 
-      t6 = time()
+      times.append(time())
 
       c = True
       for conv in self.convergers:
@@ -121,18 +123,18 @@ class dmft_loop:
           c = False
       converged = c #here we are checking that all have converged, not that at least one has converged
 
-      t7 = time()
+      times.append(time())
 
       if not converged and not mix_after_selfenergy:
         for mixer in self.mixers:
           mixer.mix(loop_index)
 
-      t8 = time()
+      times.append(time())
 
       for monitor in self.monitors:
         monitor.monitor()
 
-      t9 = time()
+      times.append(time())
 
       if mpi.is_master_node():
         data.dump_errors(suffix='-%s'%loop_index)
@@ -144,10 +146,10 @@ class dmft_loop:
         A['max_index'] = loop_index
         del A
 
-      t10 = time()
+      times.append(time())
 
       if mpi.is_master_node():
-        self.print_timings(t1,t2,t3,t4,t5,t6,t7)
+        self.print_timings(times)
 
       if converged and loop_index>n_loops_min: break
 
@@ -165,20 +167,12 @@ class dmft_loop:
         return 1 #maximum number of loops reached  
 
 
-  def print_timings(self, t1,t2,t3,t4,t5,t6,t7):
+  def print_timings(self, times):
+    labels = ["selfenergy", "mixing", "cautionary", "lattice", "pre impurity", "impurity", "post impurity", "convergence check", "second mixing"]
     print "########### DMFT LOOP timings #########"
-    print "selfenergy took: ", t1a2-t1, " secs"
-    print "mixing took: ", t1b-t1a, " secs"
-    print "cautionary took: ", t2-t1b, " secs"
-    print "lattice took: ", t3-t2, " secs"
-    print "pre impurity took: ", t4-t3, " secs"
-    print "impurity took: ", t5-t4, " secs"
-    print "post impurity took: ", t6-t5, " secs"
-    print "convergence check took: ", t7-t6, " secs"
-    print "second mixing took: ", t8-t7, " secs"
-    print "monitors took: ", t9-t8, " secs"
-    print "dumping took: ", t10-t9, " secs"
-    print "whole iteration took: ", t10-t1, " secs"
+    for l in range(len(labels)):
+      print label, " took: ", times[l+1]-times[l]," secs"
+    print "whole iteration took: ", times[-1]-times[0], " secs"
     print "#######################################"
 
 
