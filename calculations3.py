@@ -143,7 +143,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     
     dt.get_Sigmakw = lambda: dt.__class__.get_Sigmakw(dt, ising_decoupling = ising, imtime = imtime)\
                      if (not use_optimized) or (not imtime) else\
-                     lambda: GW_data.optimized_get_Sigmakw(dt, ising_decoupling = ising, N_cores=N_cores)
+                     lambda: GW_data.optimized_get_Sigmakw(dt, ising_decoupling = ising, N_cores=N_cores) #### won't work with trilex!!!
     dt.get_Xkw = lambda: dt.__class__.get_Xkw(dt, ising_decoupling = ising, imtime = imtime)\
                      if (not use_optimized) or (not imtime) else\
                      lambda: supercond_data.optimized_get_Xkw(dt, ising_decoupling = ising, N_cores=N_cores)

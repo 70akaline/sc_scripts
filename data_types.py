@@ -1017,6 +1017,7 @@ class GW_data(edmft_data):
       numpy.transpose(self.Wtildeqnu[A])[:] -= self.W_loc_iw[A].data[:,0,0]
 
   def optimized_get_Gtildeijtau(self, N_cores=1):
+    print "optimized_get_Gtildeijtau"
     self.Gtildektau = {}
     self.Gtildeijtau = {}
     for U in self.fermionic_struct.keys():
@@ -1024,6 +1025,7 @@ class GW_data(edmft_data):
       self.Gtildeijtau[U] = spatial_inverse_FT(self.Gtildektau[U], N_cores=N_cores)
 
   def optimized_get_Wtildeijtau(self, N_cores=1):
+    print "optimized_get_Wtildeijtau"
     self.Wtildeqtau = {}
     self.Wtildeijtau = {}
     for A in self.bosonic_struct.keys():

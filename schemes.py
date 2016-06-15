@@ -531,6 +531,7 @@ class supercond_hubbard:
     data.get_Sigmakw()
     data.get_Xkw() #if using optimized scheme make sure this is the order of calls (Sigmakw, Xkw then Pqnu)
     if not frozen_boson: data.get_Pqnu()
+    print "done with selfenergy"
 
   class cautionary(GW.cautionary): #makes sure divergence in propagators is avoided. safe margin needs to be provided
     def __init__(self, ms0=0.000001, ccpower=2.0, ccrelax=1, refresh_X=False, frozen_boson=False):
