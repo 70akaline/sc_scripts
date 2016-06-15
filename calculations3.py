@@ -251,14 +251,13 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                       func=mixer.mix_lattice_gf ),
               mixer( mixed_quantity = lambda: dt.P_loc_iw,
                      rules=rules,
-                     func=mixer.mix_gf )],
+                     func=mixer.mix_gf ),
               mixer( mixed_quantity = lambda: dt.Sigmakw,
                      rules=rules,
                      func=mixer.mix_lattice_gf),
               mixer( mixed_quantity = lambda: dt.Sigma_loc_iw,
                      rules=rules,
-                     func=mixer.mix_gf)
-             ]
+                     func=mixer.mix_gf)  ]
 
     monitors = [ monitor( monitored_quantity = lambda: dt.ns['up'], 
                           h5key = 'n_vs_it', 
