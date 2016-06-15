@@ -196,7 +196,7 @@ class GW:
 
       for A in data.bosonic_struct.keys():
         res = numpy.less_equal(data.Pqnu[A][:,:,:].real, (data.Jq[A][:,:])**(-1.0) ) + numpy.less_equal( data.Jq[A][:,:], numpy.zeros((data.n_q, data.n_q)))
-        data.Pqnu[A][:,:,:] = (not res[:,:,:])*data.Pqnu[A][:,:,:] + res[:,:,:]*(data.Jq[A][:,:])**(-1.0)*prefactor
+        data.Pqnu[A][:,:,:] = (1-res[:,:,:])*data.Pqnu[A][:,:,:] + res[:,:,:]*(data.Jq[A][:,:])**(-1.0)*prefactor
         if not (numpy.sum(res) == 0): clipped = True                     
 
       #for A in data.bosonic_struct.keys():
