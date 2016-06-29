@@ -262,8 +262,8 @@ class dmft_hubbard_pm: #mus is the input (considered to be mutilde = mu-U/2)
   @staticmethod
   def post_impurity(data):
     data.get_ns() #n is not involved in the calculation and is not a result, so just for debugging purposes
-    n = (data.mus['up']+data.mus['down'])/2.0
-    data.mus['up'] = data.mus['down'] = n
+    #n = (data.mus['up']+data.mus['down'])/2.0
+    #data.mus['up'] = data.mus['down'] = n
 
     for U in data.fermionic_struct.keys():
       fit_and_overwrite_tails_on_Sigma(data.Sigma_imp_iw[U])      
@@ -590,7 +590,7 @@ class supercond_hubbard:
       dt.get_n_from_G_loc()     
 
     if (n is None) or ((n==0.5) and ph_symmetry):
-      if n==0.5: 
+      if n==0.5: #otherwise - nothing to be done
         data.mus['up'] = 0
         if 'down' in data.fermionic_struct.keys(): data.mus['down'] = data.mus['up']  
         get_n(data)
@@ -655,21 +655,59 @@ class supercond_hubbard:
 
 #--------------------supercond trilex hubbard model---------------------------------------#
 
-class supercond_trilex_hubbard:
-  def __init__(self, mutilde, U, alpha, bosonic_struct, ph_symmetry = True): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
-    self.pre_impurity = partial(GW_hubbard_pm.pre_impurity, mutilde=mutilde, U=U, alpha=alpha)
-    self.lattice = partial( supercond_hubbard.lattice, frozen_boson=False, n = None, ph_symmetry = ph_symmetry)
-    self.cautionary = GW.cautionary()    
-    self.post_impurity = trilex_hubbard_pm.post_impurity
-    self.after_it_is_done = trilex_hubbard_pm.after_it_is_done  
+class supercond_EDMFTGW_hubbard(supercond_hubbard): #mu is no longer a parameter - pass it in data.mus, will not get chainged. mu is now diff from Sigma^Hartree
+  def __init__(self, U, alpha, ising = False, frozen_boson=False, refresh_X = False, n = None, ph_symmetry = False):
+    supercond_hubbard.__init__(self, frozen_boson=frozen_boson, refresh_X = refresh_X, n = n, ph_symmetry = ph_symmetry)  
+    self.pre_impurity = partial(self.pre_impurity, U=U, alpha=alpha, ising=ising)
+  @staticmethod 
+  def selfenergy(data, frozen_boson):
+    print "selfenergy: frozen_bozon: ",frozen_boson
+    data.Sigma_loc_iw << data.Sigma_imp_iw 
+    for U in data.fermionic_struct.keys(): 
+      fit_and_remove_constant_tail(data.Sigma_imp_iw[U]) #Sigma_loc doesn't contain Hartree shift
+    data.P_loc_iw << data.P_imp_iw  
+    data.get_Sigmakw()
+    data.get_Xkw() #if using optimized scheme make sure this is the order of calls (Sigmakw, Xkw then Pqnu)
+    if not frozen_boson: data.get_Pqnu()
+    print "done with selfenergy"
 
   @staticmethod 
-  def selfenergy(data):
-    dmft.selfenergy(data)
-    edmft.polarization(data)
-    data.get_Sigmakw()
-    data.get_Xkw()
+  def pre_impurity(data, U, alpha, ising):
+    data.get_Gweiss(func = dict.fromkeys(['up', 'down'], dyson.scalar.J_from_P_and_W) )
+    data.get_Uweiss_from_W(func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.J_from_P_and_W) )
+    
+    data.Uweiss_dyn_iw << data.Uweiss_iw #prepare the non-static part - static part goes separately in the impurity solver  
+    for A in data.bosonic_struct.keys(): 
+      fit_and_remove_constant_tail(data.Uweiss_dyn_iw[A], starting_iw=14.0)     
+    
+    prepare_G0_iw(data.solver.G0_iw, data.Gweiss_iw, data.fermionic_struct)
+    prepare_D0_iw(data.solver.D0_iw, data.Uweiss_dyn_iw, data.fermionic_struct, data.bosonic_struct) # but there is ALWAYS D0
+    if (alpha!=2.0/3.0 and not ising): #if ising no Jperp!
+      prepare_Jperp_iw(data.solver.Jperp_iw, data.Uweiss_dyn_iw['1']*4.0) #Uweiss['1'] pertains to n^z n^z, while Jperp to S^zS^z = n^z n^z/4
+    else: data.solver.Jperp_iw << 0.0
+ 
+    data.U_inf = U
 
+  @staticmethod 
+  def post_impurity(data):    
+    for U in data.fermionic_struct.keys():
+      fit_and_overwrite_tails_on_Sigma(data.Sigma_imp_iw[U])     #Sigma_imp contains Hartree shift
+    edmft.post_impurity(data, func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.P_from_chi_and_J ) )
+
+
+#--------------------supercond trilex hubbard model---------------------------------------#
+
+class supercond_trilex_hubbard(supercond_EDMFTGW_hubbard):
+  def __init__(self, U, alpha, ising = False, frozen_boson=False, refresh_X = False, n = None, ph_symmetry = False)
+    supercond_EMDFTGW_hubbard.__init__(self, U=U, alpha=alpha, ising = ising, frozen_boson=frozen_boson, refresh_X = refresh_X, n = n, ph_symmetry = ph_symmetry) 
+
+  @staticmethod 
+  def post_impurity(data):    
+    supercond_EDMFTGW_hubbard.post_impurity(data)
+    data.get_chi3_imp()
+    data.get_chi3tilde_imp()
+    data.get_Lambda_imp()
+        
 
 #--------------------supercond trilex tUVJ model, HS-VJ scheme (only non-local interactions are decoupled - reduces to DFMT if V and J are zero)---------------------------------------#
 
