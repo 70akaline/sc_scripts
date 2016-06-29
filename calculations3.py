@@ -252,13 +252,13 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                       func=mixer.mix_lattice_gf ),
               mixer( mixed_quantity = lambda: dt.P_loc_iw,
                      rules=rules,
-                     func=mixer.mix_gf ),
-              mixer( mixed_quantity = lambda: dt.Sigmakw,
-                     rules=rules,
-                     func=mixer.mix_lattice_gf),
-              mixer( mixed_quantity = lambda: dt.Sigma_loc_iw,
-                     rules=rules,
-                     func=mixer.mix_gf)  ]
+                     func=mixer.mix_gf )]#,
+#              mixer( mixed_quantity = lambda: dt.Sigmakw,
+#                     rules=rules,
+#                     func=mixer.mix_lattice_gf),
+#              mixer( mixed_quantity = lambda: dt.Sigma_loc_iw,
+#                     rules=rules,
+#                     func=mixer.mix_gf)  ]
 
     monitors = [ monitor( monitored_quantity = lambda: dt.ns['up'], 
                           h5key = 'n_vs_it', 
@@ -268,6 +268,9 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                           archive_name = dt.archive_name),
                  monitor( monitored_quantity = lambda: numpy.amax(dt.Pqnu['1'][dt.m_to_nui(0),:,:]*Usp), 
                           h5key = 'maxPspUsp_vs_it', 
+                          archive_name = dt.archive_name),
+                 monitor( monitored_quantity = lambda: dt.err, 
+                          h5key = 'err_vs_it', 
                           archive_name = dt.archive_name) ]
 
     #init the dmft_loop 
@@ -320,6 +323,9 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                     skip_self_energy_on_first_iteration=True,
                     mix_after_selfenergy = True, 
                     last_iteration_err_is_allowed = 18 )
-    if (err==2): break
+    if (err==2): 
+      print "Cautionary error!!! exiting..."
+      break
+
     counter += 1
-  return err
+  return dt, monitors

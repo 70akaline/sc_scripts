@@ -452,13 +452,15 @@ class basic_data:
     if mpi.is_master_node():
       A = HDFArchive(archive_name, 'r')
       for key in all_quantities:           
-        #try:
+        try:
           if no_suffix_for_parameters_and_non_interacting and ((key in self.parameters) or (key in self.non_interacting_quantities)):
-            vars(self)[key] = copy.deepcopy(A['%s'%(key)]) 
+            vars(self)[key] = copy.deepcopy(A['%s'%(key)])
+            #vars(self)[key] = A['%s'%(key)]
           else:
-            vars(self)[key] = copy.deepcopy(A['%s%s'%(key,suffix)]) 
-        #except:
-        #  print "WARNING: key ",key," not found in archive!! "  
+            vars(self)[key] = copy.deepcopy(A['%s%s'%(key,suffix)])
+            #vars(self)[key] = A['%s%s'%(key,suffix)]
+        except:
+          print "WARNING: key ",key," not found in archive!! "  
 
       del A
 
@@ -1505,6 +1507,7 @@ class trilex_data(GW_data):
 
 #--------------------------------- supercond data -------------------------------#
 from formulae import dyson
+from numpy.linalg import norm
 
 class supercond_data(GW_data):
   def __init__(self, n_iw = 100, 
@@ -1519,7 +1522,11 @@ class supercond_data(GW_data):
     GW_data.__init__(self, n_iw, ntau, n_k, n_q, beta, solver, bosonic_struct, fermionic_struct, archive_name)
     supercond_data.promote(self)
 
-  def promote(self):  
+  def promote(self):
+    self.eig_diff=float('nan')
+    self.eig_ratio=float('nan')
+    self.scalar_quantities.extend(['eig_diff', 'eig_ratio'])
+  
     self.hsck = {} #superconducting field
     self.Xkw = {} #anomalous part of lattice self-energy
     self.Xktau = {} #anomalous part of lattice self-energy
@@ -1635,6 +1642,40 @@ class supercond_data(GW_data):
     for A in self.bosonic_struct.keys():
       self.Qqnu[A][:,:,:] = p[A] * Qqnu
       self.Pqnu[A] += self.Qqnu[A]
+
+  def optimized_get_leading_eigenvalue(self, max_it = 60, accr = 5e-4, ising_decoupling = True, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1):
+    def construct_X():
+      for U in self.fermionic_struct.keys():
+        for n in [0,-1]:
+           self.Xkw[U][self.n_to_wi(n)][:] = numpy.cos(self.ks[:])
+           numpy.transpose(self.Xkw[U][self.n_to_wi(n)])[:] -= numpy.cos(self.ks[:])
+
+    def construct_F():
+      for U in self.fermionic_struct.keys():
+        self.Fkw[U] = - abs(self.Gkw[U])**2 * self.Xkw[U]
+
+    print "constructing X...",
+    construct_X()
+    print "DONE!"
+
+    self.optimized_get_Wtildeijtau(N_cores=N_cores)
+	
+    for it in range(max_it):
+      construct_F()
+      Xkwcopy = copy.deepcopy(self.Xkw)
+      self.optimized_get_Xkw(ising_decoupling = ising_decoupling, p = p, su2_symmetry = su2_symmetry, N_cores = N_cores)
+      ratio = norm(self.Xkw[self.fermionic_struct.keys()[0]])
+      diff = norm(Xkwcopy[self.fermionic_struct.keys()[0]]-self.Xkw[self.fermionic_struct.keys()[0]]/ratio)
+	    
+      for U in self.fermionic_struct.keys():
+        self.Xkw[U] /= numpy.linalg.norm(self.Xkw[U])
+      print "diff: ", diff, " ratio: ", ratio
+      if (abs(diff)<accr) or (abs(diff-2.0)<accr): 
+        print "DONE!"
+        break
+
+    self.eig_diff = diff
+    self.eig_ratio = ratio
 
   def patch_optimized(self):
     GW_data.patch_optimized(self) 
