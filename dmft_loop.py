@@ -52,7 +52,7 @@ class dmft_loop:
 
   def run(self, data, 
                 n_loops_max=100, n_loops_min=5, 
-                print_local=1, print_impurity_input=1, print_non_local=1, print_three_leg=1,
+                print_local=1, print_impurity_input=1, print_non_local=1, print_three_leg=1, print_impurity_output=1,
                 skip_self_energy_on_first_iteration=False,  #1 every iteration, 2 every second, -2 never (except for final)
                 mix_after_selfenergy = False, 
                 last_iteration_err_is_allowed = 15 ):
@@ -77,47 +77,52 @@ class dmft_loop:
         print "---------------------------- loop_index: ",loop_index,"/",n_loops_max,"---------------------------------"
       times = []
      
-      times.append(time())
+      times.append((time(),"selfenergy"))
 
       if loop_index!=0 or not skip_self_energy_on_first_iteration: 
         self.selfenergy(data=data)
 
-      times.append(time())
+      times.append((time(),"mixing 1"))
 
       if mix_after_selfenergy:
         for mixer in self.mixers:
           mixer.mix(loop_index)
 
-      times.append(time())
+      times.append((time(),"cautionary"))
 
       if not (self.cautionary is None):
         data.err = self.cautionary.check_and_fix(data)        
         if data.err and (loop_index > last_iteration_err_is_allowed):
           failed = True
 
-      times.append(time())
+      times.append((time(),"lattice"))
 
       self.lattice(data=data)
 
-      times.append(time())
+      times.append((time(),"pre_impurity"))
 
       self.pre_impurity(data=data)
 
-      times.append(time())
+      times.append((time(),"dump_impurity_input"))
 
       if mpi.is_master_node() and ((loop_index + 1) % print_impurity_input==0):
         data.dump_impurity_input(suffix='-%s'%loop_index)    
 
-      times.append(time())
+      times.append((time(),"impurity"))
 
       mpi.barrier()
       self.impurity(data=data)
 
-      times.append(time())
+      times.append((time(),"dump_impurity_output"))
+
+      if mpi.is_master_node():
+        if (loop_index + 1) % print_local == 0: data.dump_solver(suffix='-%s'%loop_index)      
+
+      times.append((time(),"post_impurity"))
 
       self.post_impurity(data=data)
 
-      times.append(time())
+      times.append((time(),"convergers"))
 
       c = True
       for conv in self.convergers:
@@ -125,18 +130,18 @@ class dmft_loop:
           c = False
       converged = c #here we are checking that all have converged, not that at least one has converged
 
-      times.append(time())
+      times.append((time(),"mixing 2"))
 
       if not converged and not mix_after_selfenergy:
         for mixer in self.mixers:
           mixer.mix(loop_index)
 
-      times.append(time())
+      times.append((time(),"monitors"))
 
       for monitor in self.monitors:
         monitor.monitor()
 
-      times.append(time())
+      times.append((time(),"dumping"))
 
       if mpi.is_master_node():
         data.dump_errors(suffix='-%s'%loop_index)
@@ -148,7 +153,7 @@ class dmft_loop:
         A['max_index'] = loop_index
         del A
 
-      times.append(time())
+      times.append((time(),""))
 
       if mpi.is_master_node():
         self.print_timings(times)
@@ -169,12 +174,11 @@ class dmft_loop:
         return 1 #maximum number of loops reached  
 
 
-  def print_timings(self, times):
-    labels = ["selfenergy", "mixing", "cautionary", "lattice", "pre impurity", "dumping impurity input", "impurity", "post impurity", "convergence check", "second mixing", "monitors", "dumping"]
+  def print_timings(self, times):    
     print "########### DMFT LOOP timings #########"
-    for l in range(len(labels)):
-      print labels[l], " took: ", times[l+1]-times[l]," secs"
-    print "whole iteration took: ", times[-1]-times[0], " secs"
+    for l in range(len(times)-1):
+      print times[l][1], " took: ", times[l+1][0]-times[l][0]," secs"
+    print "whole iteration took: ", times[-1][0]-times[0][0], " secs"
     print "#######################################"
 
 
@@ -232,6 +236,8 @@ class converger:
     self.archive_name = archive_name
     self.struct = struct
     self.h5key = h5key
+
+    print "converger initiialized: archive_name: %s h5key: %s accr: %s"%(archive_name,h5key,accuracy) 
 
   def reset(self):
     self.get_initial()

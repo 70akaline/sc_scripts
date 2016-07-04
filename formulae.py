@@ -252,7 +252,7 @@ class bubble:
           wi12 = freq_sum(wi1,wi2) 
           res[wi1] += Lambda(wi1, wi2) * G1(wi12) * G2(wi2)
       res[:] = mpi.all_reduce(0, res, 0)    
-      print "local bubble: res[nw1/2]: ",   res[nw1/2]
+      #print "local bubble: res[nw1/2]: ",   res[nw1/2]
       return res/beta
 
   class full:
@@ -269,7 +269,7 @@ class bubble:
         for V in fermionic_struct.keys():            
           for A in bosonic_struct.keys():     
             if not (A in p.keys()):
-              print "Sigma WARNING: skipping block ",A
+              if mpi.is_master_node(): print "Sigma WARNING: skipping block ",A
               continue 
             if (U!=V and A!='+-')or((U==V)and(A=='+-')): continue
             m = -1.0
@@ -288,7 +288,7 @@ class bubble:
       if G2 is None: G2 = G
       for A in bosonic_struct.keys(): 
         if not (A in p.keys()):
-          print "P WARNING: skipping block ",A
+          if mpi.is_master_node(): print "P WARNING: skipping block ",A
           continue
         P[A].fill(0.0)
         for U in fermionic_struct.keys():

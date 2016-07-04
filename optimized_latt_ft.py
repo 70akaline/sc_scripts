@@ -68,7 +68,9 @@ def temporal_FT(Qktau, beta, ntau, n_iw, nk, statistic='Fermion', use_IBZ_symmet
   elif statistic=='Boson':
     nw = 2*n_iw-1
   else:
-    print "statistic not implemented"
+    if mpi.is_master_node(): 
+      print "statistic not implemented"
+    quit()
 
   Qkw = numpy.zeros((nw,nk,nk), dtype=numpy.complex_)
         

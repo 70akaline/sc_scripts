@@ -360,7 +360,7 @@ class basic_data:
     #---------initialize containers
     self.mus = {}
     self.ns = {}
-    print "fermionic_struct: ", fermionic_struct
+    if mpi.is_master_node(): print "fermionic_struct: ", fermionic_struct
     for U in fermionic_struct.keys(): 
       self.mus[U] = 0.0
       self.ns[U] = 0.0
@@ -494,7 +494,7 @@ class bosonic_data(basic_data):
       self.nus = [ nu.imag for nu in gs[0].mesh ]
       self.inus = [ nu for nu in gs[0].mesh ]
       assert len(self.nus) == self.nnu, "Something wrong with number of points"
-    else: print "WARNING: bosonic_struct empty!" 
+    elif mpi.is_master_node(): print "WARNING: bosonic_struct empty!" 
 
     self.W_imp_iw = BlockGf(name_list = self.bosonic_struct.keys(), block_list = gs, make_copies = True)
     self.W_loc_iw = BlockGf(name_list = self.bosonic_struct.keys(), block_list = gs, make_copies = True)
@@ -702,7 +702,7 @@ class fermionic_data(basic_data):
       self.ws = [ w.imag for w in gs[0].mesh ]
       self.iws = [ w for w in gs[0].mesh ]
       assert len(self.ws) == self.nw, "Something wrong with number of points"
-    else: print "WARNING: fermionic_struct empty!" 
+    elif mpi.is_master_node(): print "WARNING: fermionic_struct empty!" 
 
     self.G_imp_iw = BlockGf(name_list = self.fermionic_struct.keys(), block_list = gs, make_copies = True)
     self.G_loc_iw = BlockGf(name_list = self.fermionic_struct.keys(), block_list = gs, make_copies = True)
@@ -970,7 +970,7 @@ class GW_data(edmft_data):
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: func[U](self.Sigmakw[U][i,kx,ky], self.G0kw[U][i,kx,ky]) )
 
   def get_Gkw_direct(self, func):
-    print "GW_data.get_Gkw_direct"
+    if mpi.is_master_node(): print "GW_data.get_Gkw_direct"
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: func[U](self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky]) )
 
   def get_G_loc_from_func_direct(self, func):
@@ -1019,7 +1019,7 @@ class GW_data(edmft_data):
       numpy.transpose(self.Wtildeqnu[A])[:] -= self.W_loc_iw[A].data[:,0,0]
 
   def optimized_get_Gtildeijtau(self, N_cores=1):
-    print "optimized_get_Gtildeijtau"
+    if mpi.is_master_node(): print "optimized_get_Gtildeijtau"
     self.Gtildektau = {}
     self.Gtildeijtau = {}
     for U in self.fermionic_struct.keys():
@@ -1027,7 +1027,7 @@ class GW_data(edmft_data):
       self.Gtildeijtau[U] = spatial_inverse_FT(self.Gtildektau[U], N_cores=N_cores)
 
   def optimized_get_Wtildeijtau(self, N_cores=1):
-    print "optimized_get_Wtildeijtau"
+    if mpi.is_master_node(): print "optimized_get_Wtildeijtau"
     self.Wtildeqtau = {}
     self.Wtildeijtau = {}
     for A in self.bosonic_struct.keys():
@@ -1037,7 +1037,7 @@ class GW_data(edmft_data):
   def optimized_get_Sigmakw(self, ising_decoupling = False, p = {'0': 1, '1': 1}, su2_symmetry = True, N_cores = 1): #ALWAYS CALL Sigmakw first, Pqnu second
     self.optimized_get_Gtildeijtau(N_cores=N_cores)
     self.optimized_get_Wtildeijtau(N_cores=N_cores)
-    print "optimized get_Sigmakw"
+    if mpi.is_master_node(): print "optimized get_Sigmakw"
     if ising_decoupling:
       m = {'0': 1, '1': 1}
     else:
@@ -1057,7 +1057,7 @@ class GW_data(edmft_data):
       self.Sigmakw['down'][:,:,:] = self.Sigmakw['up'][:,:,:]
        
   def optimized_get_Pqnu(self, su2_symmetry = True, N_cores = 1):
-    print "optimized get_Pqnu"
+    if mpi.is_master_node(): print "optimized get_Pqnu"
     self.Pijtau = numpy.zeros((self.ntau,self.n_q,self.n_q),  dtype=numpy.complex_)
     self.Pqtau = numpy.zeros((self.ntau,self.n_q,self.n_q), dtype=numpy.complex_)
     for U in self.fermionic_struct.keys():
@@ -1215,7 +1215,7 @@ class GW_data(edmft_data):
       #  function_applicators.subtract_loc_from_k_dependent(self.Pqnu[A][nui,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
 
   def get_Sigma_loc_from_local_bubble(self, imtime = False, Sigma = None, ising_decoupling=False, su2_symmetry=True, wi_list = [],  Lambda = lambda A, wi, nui: 1.0):
-    print "get_Sigma_loc_from_local_bubble"
+    if mpi.is_master_node(): print "get_Sigma_loc_from_local_bubble"
     if Sigma is None: Sigma = self.Sigma_loc_iw
     Sigma_dict = {}
     for U in self.fermionic_struct.keys():
@@ -1277,7 +1277,7 @@ class GW_data(edmft_data):
 
 
   def get_P_loc_from_local_bubble(self, imtime = False, P = None, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
-    print "get_P_loc_from_local_bubble"
+    if mpi.is_master_node(): print "get_P_loc_from_local_bubble"
     if P is None: P = self.P_loc_iw
     if not imtime:
       P_dict = {}
@@ -1608,7 +1608,7 @@ class supercond_data(GW_data):
       self.Fijtau['down'] = self.Fijtau['up']
 
   def optimized_get_Xkw(self, ising_decoupling = False, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1): #always call Xkw first, Pqnu second!!!
-    print "optimized_get_Xkw"
+    if mpi.is_master_node(): print "optimized_get_Xkw"
     self.optimized_get_Fijtau(N_cores, su2_symmetry)
     if ising_decoupling:
       m = {'0': 1, '1': 1}
@@ -1629,7 +1629,7 @@ class supercond_data(GW_data):
 
   def optimized_get_Pqnu(self, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1):
     GW_data.optimized_get_Pqnu(self,su2_symmetry, N_cores)
-    print "optimized_get_Qqnu - the addition to Pqnu"
+    if mpi.is_master_node(): print "optimized_get_Qqnu - the addition to Pqnu"
     self.Qijtau = numpy.zeros((self.ntau,self.n_q,self.n_q), dtype=numpy.complex_)
     self.Qqtau = numpy.zeros((self.ntau,self.n_q,self.n_q), dtype=numpy.complex_)
     for U in self.fermionic_struct.keys():
@@ -1654,9 +1654,9 @@ class supercond_data(GW_data):
       for U in self.fermionic_struct.keys():
         self.Fkw[U] = - abs(self.Gkw[U])**2 * self.Xkw[U]
 
-    print "constructing X...",
+    if mpi.is_master_node(): print "constructing X...",
     construct_X()
-    print "DONE!"
+    if mpi.is_master_node(): print "DONE!"
 
     self.optimized_get_Wtildeijtau(N_cores=N_cores)
 	
@@ -1669,9 +1669,9 @@ class supercond_data(GW_data):
 	    
       for U in self.fermionic_struct.keys():
         self.Xkw[U] /= numpy.linalg.norm(self.Xkw[U])
-      print "diff: ", diff, " ratio: ", ratio
+      if mpi.is_master_node():  print "diff: ", diff, " ratio: ", ratio
       if (abs(diff)<accr) or (abs(diff-2.0)<accr): 
-        print "DONE!"
+        if mpi.is_master_node():  print "DONE!"
         break
 
     self.eig_diff = diff

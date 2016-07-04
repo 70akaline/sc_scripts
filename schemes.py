@@ -206,11 +206,15 @@ class GW:
       #        if  ( data.Pqnu[A][nui,qxi,qyi].real < (data.Jq[A][qxi,qyi])**(-1.0) ) and (data.Jq[A][qxi,qyi]<0.0) : #here we assume P is negative
       #          data.Pqnu[A][nui,qxi,qyi] = prefactor*(data.Jq[A][qxi,qyi])**(-1.0) + 1j*data.Pqnu[A][nui,qxi,qyi].imag
       #          clipped = True        
-              #if  (data.Pqnu[A][i,qxi,qyi].real > 0.0): #here we assume P is negative
-              #  #print "CLIPPING: P[",A,"]: ", data.Pqnu[A][i,qxi,qyi].real,"safe_value: ", self.safe_value[A]
-              #  data.Pqnu[A][i,qxi,qyi] = 0.0 +  1j*data.Pqnu[A][i,qxi,qyi].imag   
+        res2 = numpy.less_equal(data.Pqnu[A][:,:,:].real, 0.0 )
+        if not numpy.all(res2):
+          if mpi.is_master_node():
+            print "GW.cautionary.check_and_fix: Positive Polarization!!! Clipping to zero"
+          data.Pqnu[A][:,:,:] = data.Pqnu[A][:,:,:]*res2[:,:,:]
+          clipped = True 
       if clipped: 
-        print "GW.cautionary.check_and_fix: CLIPPED!!"
+        if mpi.is_master_node():
+          print "GW.cautionary.check_and_fix: CLIPPED!!"
         self.clip_counter += 1 
       else: 
         self.clip_counter = self.clip_counter/self.ccrelax 
@@ -412,7 +416,8 @@ class GW_hubbard_pm:
     self.pre_impurity = partial(self.pre_impurity, mutilde=mutilde, U=U, alpha=alpha, ising = ising, n=n)
     self.cautionary = GW.cautionary()    
     self.post_impurity = edmft_tUVJ_pm.post_impurity
-    print "INITIALIZED GW"
+    if mpi.is_master_node():
+      print "INITIALIZED GW"
 
   @staticmethod
   def selfenergy(data, mutilde, U):
@@ -505,8 +510,9 @@ class GW_hubbard_pm:
 class trilex_hubbard_pm(GW_hubbard_pm):
   def __init__(self, mutilde, U, alpha, bosonic_struct, ising=False, n=None, ph_symmetry=True): #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
     GW_hubbard_pm.__init__(self, mutilde, U, alpha, bosonic_struct, ising, n, ph_symmetry) #mutilde is the difference from the half-filled mu, which is not known in advance because it is determined by Uweiss['0']
-    self.post_impurity = self.__class__.post_impurity     
-    print "INITIALIZED TRILEX"
+    self.post_impurity = self.__class__.post_impurity 
+    if mpi.is_master_node():    
+      print "INITIALIZED TRILEX"
 
   @staticmethod 
   def post_impurity(data):
@@ -532,23 +538,27 @@ class supercond_hubbard:
 
   @staticmethod 
   def selfenergy(data, frozen_boson):
-    print "selfenergy: frozen_bozon: ",frozen_boson
+    if mpi.is_master_node():
+      print "selfenergy: frozen_bozon: ",frozen_boson
     data.get_Sigma_loc_from_local_bubble()
     if not frozen_boson: data.get_P_loc_from_local_bubble()
     data.get_Sigmakw()
     data.get_Xkw() #if using optimized scheme make sure this is the order of calls (Sigmakw, Xkw then Pqnu)
     if not frozen_boson: data.get_Pqnu()
-    print "done with selfenergy"
+    if mpi.is_master_node():
+      print "done with selfenergy"
 
   class cautionary(GW.cautionary): #makes sure divergence in propagators is avoided. safe margin needs to be provided
     def __init__(self, ms0=0.000001, ccpower=2.0, ccrelax=1, refresh_X=False, frozen_boson=False):
-      print "initializing supercond cautionary"
+      if mpi.is_master_node():
+        print "initializing supercond cautionary"
       edmft.cautionary.__init__(self,ms0, ccpower, ccrelax)
       self.frozen_boson = frozen_boson
       if not refresh_X: self.refresh_X = lambda data: None
  
     def reset(self):
-      print "reseting supercond cautionary"
+      if mpi.is_master_node():
+        print "reseting supercond cautionary"
       edmft.cautionary.reset(self)
       self.it_counter = 0
 
@@ -582,7 +592,7 @@ class supercond_hubbard:
 
 
   @staticmethod 
-  def lattice(data, frozen_boson, n, ph_symmetry):
+  def lattice(data, frozen_boson, n, ph_symmetry, accepted_mu_range=[-0.8,0.3]):
     def get_n(dt):
       dt.get_Gkw_direct() #gets Gkw from w, mu, epsilon and Sigma and X
       dt.get_Fkw_direct() #gets Fkw from w, mu, epsilon and Sigma and X
@@ -616,12 +626,22 @@ class supercond_hubbard:
                                               itmax=30,
                                               ftolerance=1e-2,
                                               xtolerance=1e-2)
-        if (varbest[0]>-0.8 and varbest[0]<0.3) and (abs(funcvalue-1.0)<1e-2): #change the bounds for large doping
+        if (varbest[0]>accepted_mu_range[0] and varbest[0]<accepted_mu_range[1]) and (abs(funcvalue-1.0)<1e-2): #change the bounds for large doping
           found = True 
           break 
         if l+1 == len(guesses):
-          print "mu search FAILED: keeping mu unchanged. better luck next iteration."
-          data.mus['up'] = guesses[0]
+          if mpi.is_master_node(): print "mu search FAILED: doing a scan..."
+
+          mu_grid = numpy.linspace(-1.0,0.3,50)
+          func_values = [func(var=[mu], data=[data,n]) for mu in mu_grid]
+          if mpi.is_master_node(): 
+            print "func_values: "
+            for i in range(len(mu_grid)):
+              print "mu: ",mu_grid[i], " 1-abs(n-n): ", func_values[i]
+          mui_max = numpy.argmax(func_values)
+          if mpi.is_master_node(): 
+            "using mu: ", mu_grid[mui_max]
+          data.mus['up'] = mu_grid[mui_max]
           if 'down' in data.fermionic_struct.keys(): data.mus['down'] = data.mus['up']
           get_n(data)
 
@@ -642,11 +662,13 @@ class supercond_hubbard:
    
   @staticmethod 
   def pre_impurity(data):  
-    print "supercond pre_impurity - nothing to be done"  
+    if mpi.is_master_node():
+      print "supercond pre_impurity - nothing to be done"  
 
   @staticmethod 
   def post_impurity(data):
-    print "supercond post_impurity - nothing to be done"  
+    if mpi.is_master_node():
+      print "supercond post_impurity - nothing to be done"  
     #data.get_n_from_G_loc()
 
   @staticmethod 
@@ -655,21 +677,27 @@ class supercond_hubbard:
 
 #--------------------supercond trilex hubbard model---------------------------------------#
 
-class supercond_EDMFTGW_hubbard(supercond_hubbard): #mu is no longer a parameter - pass it in data.mus, will not get chainged. mu is now diff from Sigma^Hartree
+class supercond_EDMFTGW_hubbard(supercond_hubbard): #mu is no longer a parameter - pass it in data.mus, will not get chainged. #mu is now whole mu - no longer diff from Hartree term.
   def __init__(self, U, alpha, ising = False, frozen_boson=False, refresh_X = False, n = None, ph_symmetry = False):
     supercond_hubbard.__init__(self, frozen_boson=frozen_boson, refresh_X = refresh_X, n = n, ph_symmetry = ph_symmetry)  
+    self.lattice = partial(self.lattice, accepted_mu_range=[-10.0,10.0])
     self.pre_impurity = partial(self.pre_impurity, U=U, alpha=alpha, ising=ising)
+    if mpi.is_master_node():    
+      print "INITIALIZED EDMFTGW_hubbard"
+
   @staticmethod 
   def selfenergy(data, frozen_boson):
-    print "selfenergy: frozen_bozon: ",frozen_boson
+    if mpi.is_master_node():
+      print "selfenergy: frozen_bozon: ",frozen_boson
     data.Sigma_loc_iw << data.Sigma_imp_iw 
-    for U in data.fermionic_struct.keys(): 
-      fit_and_remove_constant_tail(data.Sigma_imp_iw[U]) #Sigma_loc doesn't contain Hartree shift
+    #for U in data.fermionic_struct.keys(): 
+      #fit_and_remove_constant_tail(data.Sigma_loc_iw[U], max_order=3) #Sigma_loc doesn't contain Hartree shift
     data.P_loc_iw << data.P_imp_iw  
     data.get_Sigmakw()
     data.get_Xkw() #if using optimized scheme make sure this is the order of calls (Sigmakw, Xkw then Pqnu)
     if not frozen_boson: data.get_Pqnu()
-    print "done with selfenergy"
+    if mpi.is_master_node():
+      print "done with selfenergy"
 
   @staticmethod 
   def pre_impurity(data, U, alpha, ising):
@@ -698,7 +726,7 @@ class supercond_EDMFTGW_hubbard(supercond_hubbard): #mu is no longer a parameter
 #--------------------supercond trilex hubbard model---------------------------------------#
 
 class supercond_trilex_hubbard(supercond_EDMFTGW_hubbard):
-  def __init__(self, U, alpha, ising = False, frozen_boson=False, refresh_X = False, n = None, ph_symmetry = False)
+  def __init__(self, U, alpha, ising = False, frozen_boson=False, refresh_X = False, n = None, ph_symmetry = False):
     supercond_EMDFTGW_hubbard.__init__(self, U=U, alpha=alpha, ising = ising, frozen_boson=frozen_boson, refresh_X = refresh_X, n = n, ph_symmetry = ph_symmetry) 
 
   @staticmethod 
