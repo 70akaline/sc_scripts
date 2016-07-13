@@ -599,6 +599,8 @@ class supercond_hubbard:
       dt.get_G_loc() #gets G_loc from Gkw
       dt.get_n_from_G_loc()     
 
+    if mpi.is_master_node(): print "supercond_hubbard: lattice"
+
     if (n is None) or ((n==0.5) and ph_symmetry):
       if n==0.5: #otherwise - nothing to be done
         data.mus['up'] = 0
@@ -613,8 +615,14 @@ class supercond_hubbard:
         dt.mus['up'] = mu
         if 'down' in dt.fermionic_struct.keys(): dt.mus['down'] = dt.mus['up']
         get_n(dt)        #print "funcvalue: ",-abs(n - dt.ns['up'])  
-        return 1.0-abs(n - dt.ns['up'])  
+
+        val = 1.0-abs(n - dt.ns['up'])  
+        if mpi.is_master_node(): print "amoeba func call: val = ",val
+        if val != val: return -1e+6
+        else: return val
       mpi.barrier()
+
+      if mpi.is_master_node(): print "about to do mu search:"
 
       guesses = [data.mus['up'], 0.0, -0.1, -0.3, -0.4, -0.5, -0.7, 0.3, 0.5, 0.7]
       found = False  
@@ -639,8 +647,7 @@ class supercond_hubbard:
             for i in range(len(mu_grid)):
               print "mu: ",mu_grid[i], " 1-abs(n-n): ", func_values[i]
           mui_max = numpy.argmax(func_values)
-          if mpi.is_master_node(): 
-            "using mu: ", mu_grid[mui_max]
+          if mpi.is_master_node(): print "using mu: ", mu_grid[mui_max]
           data.mus['up'] = mu_grid[mui_max]
           if 'down' in data.fermionic_struct.keys(): data.mus['down'] = data.mus['up']
           get_n(data)
@@ -720,7 +727,9 @@ class supercond_EDMFTGW_hubbard(supercond_hubbard): #mu is no longer a parameter
   def post_impurity(data):    
     for U in data.fermionic_struct.keys():
       fit_and_overwrite_tails_on_Sigma(data.Sigma_imp_iw[U])     #Sigma_imp contains Hartree shift
-    edmft.post_impurity(data, func = dict.fromkeys(data.bosonic_struct.keys(), dyson.scalar.P_from_chi_and_J ) )
+    data.get_Sz()
+    data.get_chi_imp() 
+    data.optimized_get_P_imp(use_caution=True)
 
 
 #--------------------supercond trilex hubbard model---------------------------------------#

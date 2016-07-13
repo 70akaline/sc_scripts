@@ -1,3 +1,5 @@
+import os
+
 from functools import partial
 import itertools
 import math, time, cmath
@@ -38,7 +40,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             refresh_X = True, strength = 5.0, max_it = 10,
                             n_ks = [24], 
                             w_cutoff = 20.0,
-                            n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]],
+                            n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]], mix_Sigma = True,
                             trilex = False, edmft = False, imtime = True, use_optimized = True, N_cores = 1,
                             use_cthyb=True, n_cycles=100000, max_time=10*60, accuracy = 1e-4,
                             print_local_frequency=5, print_non_local_frequency = 5,
@@ -193,7 +195,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     if len(mutildes)>1 and not fixed_n:
       filename += ".mutilde%s"%mutilde      
     if len(Us)>1: filename += ".U%s"%U
-    if len(Ts)>1: filename += ".T%s"%T
+    if len(Ts)>1: filename += ".T%.4f"%T
     if len(hs)>1: filename += ".h%s"%h
     filename += ".h5"
     dt.archive_name = filename
@@ -263,13 +265,14 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                       func=mixer.mix_lattice_gf ),
               mixer( mixed_quantity = lambda: dt.P_loc_iw,
                      rules=rules,
-                     func=mixer.mix_gf ),
-              mixer( mixed_quantity = lambda: dt.Sigmakw,
+                     func=mixer.mix_gf ) ]
+    if mix_Sigma:
+      mixers.extend([mixer( mixed_quantity = lambda: dt.Sigmakw,
                      rules=rules,
                      func=mixer.mix_lattice_gf),
-              mixer( mixed_quantity = lambda: dt.Sigma_loc_iw,
+                     mixer( mixed_quantity = lambda: dt.Sigma_loc_iw,
                      rules=rules,
-                     func=mixer.mix_gf)  ]
+                     func=mixer.mix_gf)])
 
     monitors = [ monitor( monitored_quantity = lambda: dt.ns['up'], 
                           h5key = 'n_vs_it', 
@@ -326,19 +329,22 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       dmft.mixers = [] # no mixing
       dmft.cautionary = None # nothing to be cautious about
       dmft.run( dt,
-                n_loops_max=10, 
-                n_loops_min=9,
+                n_loops_max=20, 
+                n_loops_min=10,
                 print_local=1, print_impurity_input=1, print_three_leg=100000, print_non_local=10000, print_impurity_output=1,
                 skip_self_energy_on_first_iteration=True,
                 mix_after_selfenergy = True, 
                 last_iteration_err_is_allowed = 20 )
-      cmd = 'mv result.h5 dmft.T%.2f.h5'%(T) 
-      print cmd
-      os.system(cmd)
+      if mpi.is_master_node():
+        cmd = 'mv %s %s'%(filename, filename.replace("result", "dmft")) 
+        print cmd
+        os.system(cmd)
       dmft.mixers = mixers
       dmft.cautionary = preset.cautionary
       dt.Jq = Jqcopy #put back the old Jq now for the actual calculation
-  
+      for A in dt.bosonic_struct.keys(): #empty the Polarization!!!!!!!!!!!!
+        dt.Pqnu[A][:,:,:] = 0.0
+        dt.P_loc_iw[A] << 0.0
     if refresh_X:  
       preset.cautionary.reset()
       preset.cautionary.refresh_X(dt)
@@ -364,4 +370,4 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       break
 
     counter += 1
-  return dt, monitors
+  return dt, monitors, convergers

@@ -430,7 +430,13 @@ class basic_data:
   def dump_all(self, archive_name=None, suffix=''):   
     if archive_name is None:
       archive_name = self.archive_name  #this part because of dump_solver which does not know about data
-    self.dump_solver(self.solver, archive_name, suffix)
+    try:
+      self.dump_solver(self.solver, archive_name, suffix)
+    except:
+      try:
+        self.dump_solver(suffix=suffix)
+      except:
+        print "solver cannot be dumped!" 
     self.dump_errors(archive_name, suffix)
     #self.dump_parameters(archive_name, suffix)
     self.dump_scalar(archive_name, suffix)
@@ -591,6 +597,22 @@ class bosonic_data(basic_data):
 
   def get_P_imp(self, func):
     self.get_bosonic_loc_direct(self.P_imp_iw, lambda A,i: func[A](self.chi_imp_iw[A].data[i,0,0], self.Uweiss_iw[A].data[i,0,0]) )
+
+  def optimized_get_P_imp(self, use_caution=True, prefactor=0.9):
+    for A in self.bosonic_struct.keys():
+      chi_imp = copy.deepcopy(self.chi_imp_iw[A].data[:,0,0])
+      chi_imp[:] += numpy.less_equal(chi_imp[:],0.0)*1e-10
+      Uweiss = copy.deepcopy(  self.Uweiss_iw[A].data[:,0,0] )
+      if use_caution: #makesure that U < chi^-1 so that P is negative. P = 1/(U - chi^-1) = chi/(U chi - 1)
+        res = numpy.less(Uweiss[:], chi_imp[:]**(-1.0) )
+        if not numpy.all(res) and mpi.is_master_node(): 
+          print "optimized_get_P_imp: WARNING!!! clipping chi_imp"
+          self.err = True
+          chi_imp = (1-res[:])*chi_imp + prefactor*res[:]*Uweiss[:]**(-1.0)         
+      self.P_imp_iw[A].data[:,0,0] = chi_imp[:]/(Uweiss[:]*chi_imp[:] - 1.0)   
+      for nui in range(self.nnu):
+        if self.P_imp_iw[A].data[nui,0,0] != self.P_imp_iw[A].data[nui,0,0]:
+          self.P_imp_iw[A].data[nui,0,0] = -1e-10
 
   def get_Wqnu_from_func(self, func):
     self.get_q_dependent(self.Wqnu, lambda A,i,qx,qy: func[A](self.P_loc_iw[A].data[i,0,0],self.Jq[A][qx,qy]) )
@@ -989,6 +1011,7 @@ class GW_data(edmft_data):
     self.get_q_dependent(self.Wtildeqnu, lambda A,i,qx,qy: self.Wqnu[A][i,qx,qy] - self.W_loc_iw[A].data[i,0,0] )    
 
   def optimized_get_Gkw(self,  func=None): #func here has no purpose
+    if mpi.is_master_node(): print "optimized_get_Gkw"
     for U in self.fermionic_struct.keys():
       numpy.transpose(self.Gkw[U])[:] = self.iws[:]
       self.Gkw[U][:,:,:] += self.mus[U]
@@ -997,23 +1020,28 @@ class GW_data(edmft_data):
       self.Gkw[U] **= -1.0
 
   def optimized_get_G_loc(self,  func=None): #func here has no purpose
+    if mpi.is_master_node(): print "optimized_get_G_loc"
     for U in self.fermionic_struct.keys():
       self.G_loc_iw[U].data[:,0,0] = numpy.sum(self.Gkw[U],axis=(1,2))/self.n_k**2
 
   def optimized_get_Gtildekw(self,  func=None): #func here has no purpose
+    if mpi.is_master_node(): print "optimized_get_Gtildekw"
     for U in self.fermionic_struct.keys():
       self.Gtildekw[U][:,:,:] = self.Gkw[U][:,:,:]
       numpy.transpose(self.Gtildekw[U])[:] -= self.G_loc_iw[U].data[:,0,0]
 
   def optimized_get_Wqnu(self,  func=None): #func here has no purpose
+    if mpi.is_master_node(): print "optimized_get_Wqnu"
     for A in self.bosonic_struct.keys():
       self.Wqnu[A][:,:,:] = self.Jq[A][:,:] / (  1.0 - self.Jq[A][:,:]*self.Pqnu[A][:,:,:] )
 
   def optimized_get_W_loc(self,  func=None): #func here has no purpose
+    if mpi.is_master_node(): print "optimized_get_W_loc"
     for A in self.bosonic_struct.keys():
       self.W_loc_iw[A].data[:,0,0] = numpy.sum(self.Wqnu[A],axis=(1,2))/self.n_q**2
 
   def optimized_get_Wtildeqnu(self,  func=None): #func here has no purpose
+    if mpi.is_master_node(): print "optimized_get_Wtildeqnu"
     for A in self.bosonic_struct.keys():
       self.Wtildeqnu[A][:,:,:] = self.Wqnu[A][:,:,:]
       numpy.transpose(self.Wtildeqnu[A])[:] -= self.W_loc_iw[A].data[:,0,0]
@@ -1579,7 +1607,7 @@ class supercond_data(GW_data):
     self.get_k_dependent(self.Fkw, lambda U,i,kx,ky: dyson.superconducting.F_from_w_mu_epsilon_Sigma_and_X(self.iws[i], self.mus[U], self.epsilonk[U][kx,ky], self.Sigmakw[U][i,kx,ky], self.Xkw[U][i,kx,ky]) )
 
   def optimized_get_Gkw(self, func=None): #func here has no purpose
-    #print "supercond_data.optimized_get_Gkw"
+    if mpi.is_master_node(): print "supercond_data.optimized_get_Gkw"
     for U in self.fermionic_struct.keys():
       gkw = copy.deepcopy(self.Gkw[U]) 
       numpy.transpose(gkw)[:] = self.iws[:]
@@ -1589,6 +1617,7 @@ class supercond_data(GW_data):
       self.Gkw[U] = numpy.conj(gkw)/(abs(gkw)**2.0 + abs(self.Xkw[U])**2.0)
 
   def optimized_get_Fkw(self, func=None): #func here has no purpose
+    if mpi.is_master_node(): print "supercond_data.optimized_get_Fkw"
     for U in self.fermionic_struct.keys():
       gkw = copy.deepcopy(self.Gkw[U])
       numpy.transpose(gkw)[:] = self.iws[:]
