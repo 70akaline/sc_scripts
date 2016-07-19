@@ -1687,7 +1687,7 @@ class supercond_data(GW_data):
              self.Xkw[U][self.n_to_wi(n)][:] = numpy.sin(self.ks[:])
              numpy.transpose(self.Xkw[U][self.n_to_wi(n)])[:] *= numpy.sin(self.ks[:])
            elif symmetry=='s':
-             self.Xkw[U][self.n_to_wi(n)][:,:,:] = 1.0
+             self.Xkw[U][self.n_to_wi(n),:,:] = 1.0
            else:
              print "symmetry not implemented!! "
              quit()
@@ -1826,7 +1826,7 @@ class supercond_data(GW_data):
              self.Xkw[U][self.n_to_wi(n)][:] = numpy.sin(self.ks[:])
              numpy.transpose(self.Xkw[U][self.n_to_wi(n)])[:] *= numpy.sin(self.ks[:])
            elif symmetry=='s':
-             self.Xkw[U][self.n_to_wi(n)][:,:,:] = 1.0
+             self.Xkw[U][self.n_to_wi(n),:,:] = 1.0
            else:
              print "symmetry not implemented!! "
              quit()
