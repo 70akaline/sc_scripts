@@ -158,7 +158,7 @@ class dmft_loop:
       if mpi.is_master_node():
         self.print_timings(times)
 
-      if converged and loop_index>n_loops_min: break
+      if (converged and loop_index>n_loops_min) or failed: break
 
     if not (self.after_it_is_done is None):
       self.after_it_is_done(data) #notice that if we don't say data=data we can pass a method of data for after_it_is_done, such that here self=data    

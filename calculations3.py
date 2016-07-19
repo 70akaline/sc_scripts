@@ -41,7 +41,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             n_ks = [24], 
                             w_cutoff = 20.0,
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]], mix_Sigma = True,
-                            trilex = False, edmft = False, imtime = True, use_optimized = True, N_cores = 1,
+                            trilex = False, edmft = False, imtime = True, use_optimized = True, N_cores = 1, do_dmft_first = True,
                             use_cthyb=True, n_cycles=100000, max_time=10*60, accuracy = 1e-4,
                             print_local_frequency=5, print_non_local_frequency = 5,
                             initial_guess_archive_name = '', suffix=''):
@@ -120,7 +120,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
 
   #initial guess
   
-  assert not(trilex and fixed_n), "trilex doesn't yet work"
+  #assert not(trilex and fixed_n), "trilex doesn't yet work"
 
   if fixed_n:
     ps = itertools.product(n_ks,ts,ns,Us,Ts,hs)
@@ -130,6 +130,8 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
   counter = 0
   old_nk = n_k
   old_beta = beta
+
+  old_get_Xkw = None
 
   for p in ps:    
     #name stuff to avoid confusion   
@@ -145,26 +147,27 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     beta = 1.0/T
     h = p[5]
 
-    assert not(use_optimized and trilex), "don't have optimized freq summation from trilex"
-       
-    dt.get_Sigmakw = (lambda: dt.__class__.get_Sigmakw(dt, ising_decoupling = ising, imtime = imtime))\
-                     if ((not use_optimized) or (not imtime)) else\
-                     (lambda: GW_data.optimized_get_Sigmakw(dt, ising_decoupling = ising, N_cores=N_cores)) #### won't work with trilex!!!
-    dt.get_Xkw = (lambda: dt.__class__.get_Xkw(dt, ising_decoupling = ising, imtime = imtime) )\
-                     if ((not use_optimized) or (not imtime)) else\
-                     (lambda: supercond_data.optimized_get_Xkw(dt, ising_decoupling = ising, N_cores=N_cores) )
-    dt.get_Pqnu = ( lambda: dt.__class__.get_Pqnu(dt, imtime = imtime) )\
-                     if ((not use_optimized) or (not imtime)) else\
-                     ( lambda: supercond_data.optimized_get_Pqnu(dt, N_cores=N_cores) )
+    #assert not(use_optimized and trilex), "don't have optimized freq summation from trilex"
+    Lam = ( dt.Lambda_wrapper if trilex else ( lambda A, wi, nui: 1.0 )  )
+    if (not use_optimized) or (not imtime): #automatically if trilex because imtime = False is asserted
+      dt.get_Sigmakw = lambda: dt.__class__.get_Sigmakw(dt, ising_decoupling = ising, imtime = imtime, Lambda = Lam)
+      dt.get_Xkw = lambda: dt.__class__.get_Xkw(dt, ising_decoupling = ising, imtime = imtime, Lambda = Lam) 
+      dt.get_Pqnu = lambda: dt.__class__.get_Pqnu(dt, imtime = imtime, Lambda = Lam) 
+    else:
+      dt.get_Sigmakw =  lambda: GW_data.optimized_get_Sigmakw(dt, ising_decoupling = ising, N_cores=N_cores)
+      dt.get_Xkw =  lambda: supercond_data.optimized_get_Xkw(dt, ising_decoupling = ising, N_cores=N_cores) 
+      dt.get_Pqnu =  lambda: supercond_data.optimized_get_Pqnu(dt, N_cores=N_cores) 
 
-    dt.get_Sigma_loc_from_local_bubble = lambda: dt.__class__.get_Sigma_loc_from_local_bubble(dt, ising_decoupling = ising, imtime = imtime)
-    dt.get_P_loc_from_local_bubble = lambda: dt.__class__.get_P_loc_from_local_bubble(dt, imtime = imtime)
+    dt.get_Sigma_loc_from_local_bubble = lambda: dt.__class__.get_Sigma_loc_from_local_bubble(dt, ising_decoupling = ising, imtime = imtime, Lambda = Lam)
+    dt.get_P_loc_from_local_bubble = lambda: dt.__class__.get_P_loc_from_local_bubble(dt, imtime = imtime, Lambda = Lam)
     if ((h==0.0)or(h==0))and (not refresh_X):
       print "assigning GW_data.Pqnu because no h, no imposed X"
+      old_get_Xkw = dt.get_Xkw #save the old one and put it back before returning data   
       dt.get_Xkw = lambda: None
-      dt.get_Pqnu = ( lambda: GW_data.get_Pqnu(dt, imtime = imtime) )\
-                     if ( (not use_optimized) or (not imtime) ) else\
-                     ( lambda: GW_data.optimized_get_Pqnu(dt, N_cores=N_cores) )
+      if (not use_optimized) or (not imtime):
+        dt.get_Pqnu = lambda: GW_data.get_Pqnu(dt, imtime = imtime, Lambda = Lam) 
+      else: 
+        dt.get_Pqnu = lambda: GW_data.optimized_get_Pqnu(dt, N_cores=N_cores) 
 
 
     if nk!=old_nk:
@@ -225,7 +228,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     dt.fill_in_epsilonk(dict.fromkeys(fermionic_struct.keys(), partial(t_dispersion, t=t)))
 
     if trilex: 
-      preset = supercond_trilex_hubbard(mutilde=mutilde, U=U, alpha=alpha, bosonic_struct=bosonic_struct)
+      preset = supercond_trilex_hubbard(U=U, alpha=alpha, ising = ising, frozen_boson=(frozen_boson if (T!=Ts[0]) else False), refresh_X = refresh_X, n = n, ph_symmetry = ph_symmetry)
     elif edmft:
       preset = supercond_EDMFTGW_hubbard(U=U, alpha=alpha, ising = ising, frozen_boson=(frozen_boson if (T!=Ts[0]) else False), refresh_X = refresh_X, n = n, ph_symmetry = ph_symmetry)
     else:
@@ -306,7 +309,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     #  dt.Sigma_imp_iw << U/2.0 + mutilde #making sure that in the first iteration the impurity problem is half-filled. if not solving impurity problem, not needed
     #  for U in fermionic_struct.keys(): dt.Sigmakw[U].fill(0)
     #  for U in fermionic_struct.keys(): dt.Xkw[U].fill(0)
-    if (T==Ts[0]):# and not trilex: #do this only once!         
+    if (T==Ts[0]): #do this only once!         
       if not fixed_n:
         dt.mus['up'] = mutilde
       else:
@@ -321,13 +324,29 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       for U in fermionic_struct.keys(): dt.Xkw[U].fill(0)
       #note that below from here U is no longer U because of the above for loops
  
-    if edmft:
+    if loc_from_imp and (T==Ts[0]) and do_dmft_first:
       #do one short run of dmft before starting emdft+gw
+      if mpi.is_master_node(): print "================= 20 iterations of DMFT!!!! ================="
       Jqcopy = deepcopy(dt.Jq) #copy the old Jq
       for A in dt.bosonic_struct.keys():
-        dt.Jq[A][:,:] = 0.0 #setting bare bosonic propagators to zero reduces the calculation to dmft.
+        dt.Jq[A][:,:] = 0.0 #setting bare bosonic propagators to zero reduces the calculation to dmft.      
+
+      #but we also don't want to do the calculation of Sigmakw and Pqnu 
+      get_Sigmakw = dt.get_Sigmakw
+      get_Pqnu = dt.get_Pqnu
+      get_Xkw = dt.get_Xkw        
+      def copy_Sigma_loc_to_Sigmakw():
+        if mpi.is_master_node(): print ">>>>> just copying Sigma_loc to Sigma_kw" 
+        for U in dt.fermionic_struct.keys():
+          numpy.transpose(dt.Sigmakw[U])[:] = dt.Sigma_loc_iw[U].data[:,0,0]
+     
+      dt.get_Sigmakw = copy_Sigma_loc_to_Sigmakw
+      dt.get_Pqnu = lambda: None
+      dt.get_Xkw = lambda: None
+ 
       dmft.mixers = [] # no mixing
-      dmft.cautionary = None # nothing to be cautious about
+      dmft.cautionary = None # nothing to be cautious about 
+      # DO THE CALC   
       dmft.run( dt,
                 n_loops_max=20, 
                 n_loops_min=10,
@@ -335,16 +354,22 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                 skip_self_energy_on_first_iteration=True,
                 mix_after_selfenergy = True, 
                 last_iteration_err_is_allowed = 20 )
+      #move the result
       if mpi.is_master_node():
         cmd = 'mv %s %s'%(filename, filename.replace("result", "dmft")) 
         print cmd
         os.system(cmd)
+      # put everything back to normal
       dmft.mixers = mixers
       dmft.cautionary = preset.cautionary
       dt.Jq = Jqcopy #put back the old Jq now for the actual calculation
       for A in dt.bosonic_struct.keys(): #empty the Polarization!!!!!!!!!!!!
         dt.Pqnu[A][:,:,:] = 0.0
         dt.P_loc_iw[A] << 0.0
+      dt.get_Sigmakw = get_Sigmakw 
+      dt.get_Pqnu = get_Pqnu 
+      dt.get_Xkw = get_Xkw       
+     
     if refresh_X:  
       preset.cautionary.reset()
       preset.cautionary.refresh_X(dt)
@@ -370,4 +395,6 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       break
 
     counter += 1
+  if not (old_get_Xkw is None):
+    dt.get_Xkw  = old_get_Xkw #putting back the function for later use
   return dt, monitors, convergers

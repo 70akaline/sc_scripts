@@ -690,7 +690,7 @@ class supercond_EDMFTGW_hubbard(supercond_hubbard): #mu is no longer a parameter
     self.lattice = partial(self.lattice, accepted_mu_range=[-10.0,10.0])
     self.pre_impurity = partial(self.pre_impurity, U=U, alpha=alpha, ising=ising)
     if mpi.is_master_node():    
-      print "INITIALIZED EDMFTGW_hubbard"
+      print "INITIALIZED supercond_EDMFTGW_hubbard"
 
   @staticmethod 
   def selfenergy(data, frozen_boson):
@@ -736,7 +736,9 @@ class supercond_EDMFTGW_hubbard(supercond_hubbard): #mu is no longer a parameter
 
 class supercond_trilex_hubbard(supercond_EDMFTGW_hubbard):
   def __init__(self, U, alpha, ising = False, frozen_boson=False, refresh_X = False, n = None, ph_symmetry = False):
-    supercond_EMDFTGW_hubbard.__init__(self, U=U, alpha=alpha, ising = ising, frozen_boson=frozen_boson, refresh_X = refresh_X, n = n, ph_symmetry = ph_symmetry) 
+    supercond_EDMFTGW_hubbard.__init__(self, U=U, alpha=alpha, ising = ising, frozen_boson=frozen_boson, refresh_X = refresh_X, n = n, ph_symmetry = ph_symmetry) 
+    if mpi.is_master_node():    
+      print "INITIALIZED supercond_trilex_hubbard"
 
   @staticmethod 
   def post_impurity(data):    

@@ -317,18 +317,20 @@ class function_applicators: #fill with a scalar function, or do a simple manipul
             Q[key].data[i,0,0] += func(key,i,kx,ky)
     Q << mpi.all_reduce(0, Q, 0)/(nkx*nky)  
 
-  @staticmethod
-  def subtract_loc_from_k_dependent(Q, nkx, nky):
-    local_part = 0.0
-    for kx in range(nkx):
-      for ky in range(nky):             
-        local_part += Q[kx,ky]
-    local_part /= nkx*nky      
-    Q -= local_part 
+  #@staticmethod
+  #def subtract_loc_from_k_dependent(Q, nkx, nky):
+  #  local_part = 0.0
+  #  for kx in range(nkx):
+  #    for ky in range(nky):             
+  #      local_part += Q[kx,ky]
+  #  local_part /= nkx*nky      
+  #  Q -= local_part 
 
   @staticmethod
   def subtract_loc_from_k_dependent(Q):
-    numpy.transpose(Q)[:] -= numpy.sum(Q, axis=(1,2))/nk**2
+    nkx = len(Q[0,:,0])
+    nky = len(Q[0,0,:])
+    numpy.transpose(Q)[:] -= numpy.sum(Q, axis=(1,2))/(nkx*nky)
 
 ################################ DATA ##########################################
 
@@ -1167,6 +1169,7 @@ class GW_data(edmft_data):
     return g[key].data[nui,0,0]
 
   def get_Sigmakw(self, imtime = False, simple = False, use_IBZ_symmetry = True, ising_decoupling=False, su2_symmetry=True, wi_list = [],  Lambda = lambda A, wi, nui: 1.0):
+    if mpi.is_master_node(): print "GW_data.get_Sigmakw" 
     assert self.n_k == self.n_q, "ERROR: for bubble calcuation it is necessary that bosonic and fermionic quantities have the same discretization of IBZ"
     if not imtime:
       bubble.full.Sigma\
@@ -1201,11 +1204,12 @@ class GW_data(edmft_data):
 
       self.Sigmakw = block_latt_FT(self.Sigmaktau, self.beta, self.ntau, self.n_iw, self.n_k, statistic='Fermion')
     for U in self.fermionic_struct.keys():
-      for wi in (range(self.nw) if wi_list==[] else wi_list):
-        function_applicators.subtract_loc_from_k_dependent(self.Sigmakw[U][wi,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
-        self.Sigmakw[U][wi,:,:] += self.Sigma_loc_iw[U].data[wi,0,0]
+      #for wi in (range(self.nw) if wi_list==[] else wi_list):
+        function_applicators.subtract_loc_from_k_dependent(self.Sigmakw[U][:,:,:])#, self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
+        numpy.transpose(self.Sigmakw[U])[:] += self.Sigma_loc_iw[U].data[:,0,0]
 
   def get_Pqnu(self, imtime = False, simple = False, use_IBZ_symmetry = True, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
+    if mpi.is_master_node(): print "GW_data.get_Pqnu" 
     if not imtime:
       bubble.full.P\
                 ( self.fermionic_struct, self.bosonic_struct, 
@@ -1236,7 +1240,7 @@ class GW_data(edmft_data):
       self.Pqnu = block_latt_FT(self.Pqtau, self.beta, self.ntau, self.n_iw, self.n_k, statistic='Boson')
     for A in self.bosonic_struct.keys():
       # subtract the local part
-      numpy.transpose(self.Pqnu[A])[:] -= numpy.sum(Pqnu[A], axis=(1,2))/self.n_q**2 # cautionary measure - at this point the local part should be zero
+      numpy.transpose(self.Pqnu[A])[:] -= numpy.sum(self.Pqnu[A], axis=(1,2))/self.n_q**2 # cautionary measure - at this point the local part should be zero
       numpy.transpose(self.Pqnu[A])[:] += self.P_loc_iw[A].data[:,0,0]
 
       #for nui in (range(self.nnu) if nui_list==[] else nui_list):
@@ -1672,12 +1676,21 @@ class supercond_data(GW_data):
       self.Qqnu[A][:,:,:] = p[A] * Qqnu
       self.Pqnu[A] += self.Qqnu[A]
 
-  def optimized_get_leading_eigenvalue(self, max_it = 60, accr = 5e-4, ising_decoupling = True, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1):
+  def optimized_get_leading_eigenvalue(self, max_it = 60, accr = 5e-4, ising_decoupling = True, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1, symmetry = 'd'):
     def construct_X():
       for U in self.fermionic_struct.keys():
         for n in [0,-1]:
-           self.Xkw[U][self.n_to_wi(n)][:] = numpy.cos(self.ks[:])
-           numpy.transpose(self.Xkw[U][self.n_to_wi(n)])[:] -= numpy.cos(self.ks[:])
+           if symmetry=='d': 
+             self.Xkw[U][self.n_to_wi(n)][:] = numpy.cos(self.ks[:])
+             numpy.transpose(self.Xkw[U][self.n_to_wi(n)])[:] -= numpy.cos(self.ks[:])
+           elif symmetry=='d_xy':
+             self.Xkw[U][self.n_to_wi(n)][:] = numpy.sin(self.ks[:])
+             numpy.transpose(self.Xkw[U][self.n_to_wi(n)])[:] *= numpy.sin(self.ks[:])
+           elif symmetry=='s':
+             self.Xkw[U][self.n_to_wi(n)][:,:,:] = 1.0
+           else:
+             print "symmetry not implemented!! "
+             quit()
 
     def construct_F():
       for U in self.fermionic_struct.keys():
@@ -1715,6 +1728,7 @@ class supercond_data(GW_data):
     self.get_Fkw_direct = lambda: self.__class__.get_Fkw_direct(self)
 
   def get_Xkw(self, imtime = False, simple = False, use_IBZ_symmetry = False, ising_decoupling=False, su2_symmetry=True, wi_list = [],  Lambda = lambda A, wi, nui: 1.0):
+    if mpi.is_master_node(): print "supercond_data.get_Xkw" 
     assert self.n_k == self.n_q, "ERROR: for bubble calcuation it is necessary that bosonic and fermionic quantities have the same discretization of IBZ"
     if not imtime:
       bubble.full.Sigma\
@@ -1753,11 +1767,12 @@ class supercond_data(GW_data):
 
       self.Xkw = block_latt_FT(self.Xktau, self.beta, self.ntau, self.n_iw, self.n_k, statistic='Fermion')
     for U in self.fermionic_struct.keys():
-      for wi in (range(self.nw) if wi_list==[] else wi_list):
-        function_applicators.subtract_loc_from_k_dependent(self.Xkw[U][wi,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
-        self.Xkw[U][wi,:,:] += self.hsck[U][:,:]
+#      for wi in (range(self.nw) if wi_list==[] else wi_list):
+        function_applicators.subtract_loc_from_k_dependent(self.Xkw[U])#, self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
+        self.Xkw[U][:,:,:] += self.hsck[U][:,:]
 
   def get_Pqnu(self, imtime = False, simple = False, use_IBZ_symmetry = True, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
+    if mpi.is_master_node(): print "supercond_data.get_Pqnu" 
     GW_data.get_Pqnu(self, imtime, simple, use_IBZ_symmetry, su2_symmetry, nui_list, Lambda) 
     Fstarkw = {}
     for U in self.fermionic_struct.keys():
@@ -1796,10 +1811,52 @@ class supercond_data(GW_data):
                   su2_symmetry=su2_symmetry, p = {'0': -1.0, '1': 1.0} )
       self.Qqnu = block_latt_FT(self.Qqtau, self.beta, self.ntau, self.n_iw, self.n_k, statistic='Boson')      
     for A in self.bosonic_struct.keys():
-      for nui in (range(self.nnu) if nui_list==[] else nui_list):
-        function_applicators.subtract_loc_from_k_dependent(self.Qqnu[A][nui,:,:], self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
+      #for nui in (range(self.nnu) if nui_list==[] else nui_list):
+      function_applicators.subtract_loc_from_k_dependent(self.Qqnu[A])#, self.n_k, self.n_k) # cautionary measure - at this point the local part should be zero
       self.Pqnu[A][:,:,:] += self.Qqnu[A][:,:,:]
 
+  def get_leading_eigenvalue(self, max_it = 60, accr = 5e-4, symmetry = 'd', ising_decoupling = False):
+    def construct_X():
+      for U in self.fermionic_struct.keys():
+        for n in [0,-1]:
+           if symmetry=='d': 
+             self.Xkw[U][self.n_to_wi(n)][:] = numpy.cos(self.ks[:])
+             numpy.transpose(self.Xkw[U][self.n_to_wi(n)])[:] -= numpy.cos(self.ks[:])
+           elif symmetry=='d_xy':
+             self.Xkw[U][self.n_to_wi(n)][:] = numpy.sin(self.ks[:])
+             numpy.transpose(self.Xkw[U][self.n_to_wi(n)])[:] *= numpy.sin(self.ks[:])
+           elif symmetry=='s':
+             self.Xkw[U][self.n_to_wi(n)][:,:,:] = 1.0
+           else:
+             print "symmetry not implemented!! "
+             quit()
+
+    def construct_F():
+      for U in self.fermionic_struct.keys():
+        self.Fkw[U] = - abs(self.Gkw[U])**2 * self.Xkw[U]
+
+    if mpi.is_master_node(): print "constructing X...",
+    construct_X()
+    if mpi.is_master_node(): print "DONE!"
+
+    #self.optimized_get_Wtildeijtau(N_cores=N_cores)
+	
+    for it in range(max_it):
+      construct_F()
+      Xkwcopy = copy.deepcopy(self.Xkw)
+      self.get_Xkw(ising_decoupling=ising_decoupling)
+      ratio = norm(self.Xkw[self.fermionic_struct.keys()[0]])
+      diff = norm(Xkwcopy[self.fermionic_struct.keys()[0]]-self.Xkw[self.fermionic_struct.keys()[0]]/ratio)
+	    
+      for U in self.fermionic_struct.keys():
+        self.Xkw[U] /= numpy.linalg.norm(self.Xkw[U])
+      if mpi.is_master_node():  print "diff: ", diff, " ratio: ", ratio
+      if (abs(diff)<accr) or (abs(diff-2.0)<accr): 
+        if mpi.is_master_node():  print "DONE!"
+        break
+
+    self.eig_diff = diff
+    self.eig_ratio = ratio
 
 #--------------------------------- supercond trilex data -------------------------------#
 
