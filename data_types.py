@@ -990,6 +990,15 @@ class GW_data(edmft_data):
     self.non_local_bosonic_gfs.extend( new_bosonic )
     self.non_local_quantities.extend( new_fermionic + new_bosonic )
 
+  def dump_essential(self, archive_name=None, suffix=''):
+    if archive_name is None:
+      archive_name = self.archive_name  #this part because of dump_solver which does not know about data
+    self.dump_scalar(archive_name, suffix)
+    self.dump_non_interacting(archive_name, suffix)
+    self.dump_local(archive_name, suffix)
+    essential_quantities = ['Gtildekw','Wtildekw','Sigmakw','Pqnu']
+    self.dump_general( essential_quantities, archive_name, suffix )
+
   def get_Gkw(self, func):
     self.get_k_dependent(self.Gkw, lambda U,i,kx,ky: func[U](self.Sigmakw[U][i,kx,ky], self.G0kw[U][i,kx,ky]) )
 
@@ -1857,6 +1866,8 @@ class supercond_data(GW_data):
 
     self.eig_diff = diff
     self.eig_ratio = ratio
+
+
 
 #--------------------------------- supercond trilex data -------------------------------#
 
