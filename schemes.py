@@ -197,7 +197,9 @@ class GW:
       for A in data.bosonic_struct.keys():
         res = numpy.less_equal(data.Pqnu[A][:,:,:].real, (data.Jq[A][:,:])**(-1.0) ) * numpy.less_equal( data.Jq[A][:,:], numpy.zeros((data.n_q, data.n_q)))
         data.Pqnu[A][:,:,:] = (1-res[:,:,:])*data.Pqnu[A][:,:,:] + res[:,:,:]*(data.Jq[A][:,:])**(-1.0)*prefactor
-        if not (numpy.sum(res) == 0): clipped = True                     
+        if not (numpy.sum(res) == 0): 
+          clipped = True                     
+          print "GW.cautionary.check_and_fix: Too negative Polarization!!! Clipping to large value in block ",A
 
       #for A in data.bosonic_struct.keys():
       #  for nui in range(data.m_to_nui(-3),data.m_to_nui(3)): #careful with the range
@@ -209,7 +211,7 @@ class GW:
         res2 = numpy.less_equal(data.Pqnu[A][:,:,:].real, 0.0 )
         if not numpy.all(res2):
           if mpi.is_master_node():
-            print "GW.cautionary.check_and_fix: Positive Polarization!!! Clipping to zero"
+            print "GW.cautionary.check_and_fix: Positive Polarization!!! Clipping to zero in block ",A
           data.Pqnu[A][:,:,:] = data.Pqnu[A][:,:,:]*res2[:,:,:]
           clipped = True 
       if clipped: 
@@ -549,7 +551,7 @@ class supercond_hubbard:
       print "done with selfenergy"
 
   class cautionary(GW.cautionary): #makes sure divergence in propagators is avoided. safe margin needs to be provided
-    def __init__(self, ms0=0.000001, ccpower=2.0, ccrelax=1, refresh_X=False, frozen_boson=False):
+    def __init__(self, ms0=0.0001, ccpower=2.0, ccrelax=1, refresh_X=False, frozen_boson=False):
       if mpi.is_master_node():
         print "initializing supercond cautionary"
       edmft.cautionary.__init__(self,ms0, ccpower, ccrelax)

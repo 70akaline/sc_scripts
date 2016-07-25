@@ -608,7 +608,7 @@ class bosonic_data(basic_data):
       if use_caution: #makesure that U < chi^-1 so that P is negative. P = 1/(U - chi^-1) = chi/(U chi - 1)
         res = numpy.less(Uweiss[:], chi_imp[:]**(-1.0) )
         if not numpy.all(res) and mpi.is_master_node(): 
-          print "optimized_get_P_imp: WARNING!!! clipping chi_imp"
+          print "optimized_get_P_imp: WARNING!!! clipping chi_imp in block ",A
           self.err = True
           chi_imp = (1-res[:])*chi_imp + prefactor*res[:]*Uweiss[:]**(-1.0)         
       self.P_imp_iw[A].data[:,0,0] = chi_imp[:]/(Uweiss[:]*chi_imp[:] - 1.0)   
