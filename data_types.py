@@ -600,7 +600,7 @@ class bosonic_data(basic_data):
   def get_P_imp(self, func):
     self.get_bosonic_loc_direct(self.P_imp_iw, lambda A,i: func[A](self.chi_imp_iw[A].data[i,0,0], self.Uweiss_iw[A].data[i,0,0]) )
 
-  def optimized_get_P_imp(self, use_caution=True, prefactor=0.9):
+  def optimized_get_P_imp(self, use_caution=True, prefactor=0.99):
     for A in self.bosonic_struct.keys():
       chi_imp = copy.deepcopy(self.chi_imp_iw[A].data[:,0,0])
       chi_imp[:] += numpy.less_equal(chi_imp[:],0.0)*1e-10
@@ -996,7 +996,7 @@ class GW_data(edmft_data):
     self.dump_scalar(archive_name, suffix)
     self.dump_non_interacting(archive_name, suffix)
     self.dump_local(archive_name, suffix)
-    essential_quantities = ['Gtildekw','Wtildekw','Sigmakw','Pqnu']
+    essential_quantities = ['Gtildekw','Wtildeqnu','Sigmakw','Pqnu']
     self.dump_general( essential_quantities, archive_name, suffix )
 
   def get_Gkw(self, func):
