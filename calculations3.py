@@ -422,7 +422,8 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                           archive_name = dt.archive_name) )
 
       # start from a small gap
-      dt.Xkw /= 10**6 
+      for U in dt.fermionic_struct.keys():
+        dt.Xkw[U] /= 10.0**6 
 
       #run the calculation again
       err = dmft.run( dt,

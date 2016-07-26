@@ -1677,7 +1677,7 @@ class supercond_data(GW_data):
     self.Qqtau = numpy.zeros((self.ntau,self.n_q,self.n_q), dtype=numpy.complex_)
     for U in self.fermionic_struct.keys():
       if su2_symmetry and (U != 'up'): continue
-      self.Qijtau += - self.Fijtau[U][:,:,:] * self.Fijtau[::-1,:,:]
+      self.Qijtau += - self.Fijtau[U][:,:,:] * self.Fijtau[U][::-1,:,:]
       self.Qqtau += spatial_FT(self.Qijtau, N_cores=N_cores)
     if su2_symmetry:
       self.Qqtau *= 2.0 
@@ -1687,7 +1687,7 @@ class supercond_data(GW_data):
       self.Pqnu[A] += self.Qqnu[A]
 
   def optimized_get_leading_eigenvalue(self, max_it = 60, accr = 5e-4, ising_decoupling = True, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1, symmetry = 'd'):
-   if mpi.is_master_node(): print "optimized_get_leading_eigenvalue"
+    if mpi.is_master_node(): print "optimized_get_leading_eigenvalue"
     def construct_X():
       for U in self.fermionic_struct.keys():
         for n in [0,-1]:
