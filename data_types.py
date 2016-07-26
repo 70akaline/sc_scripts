@@ -610,7 +610,7 @@ class bosonic_data(basic_data):
         if not numpy.all(res) and mpi.is_master_node(): 
           print "optimized_get_P_imp: WARNING!!! clipping chi_imp in block ",A
           self.err = True
-          chi_imp = (1-res[:])*chi_imp + prefactor*res[:]*Uweiss[:]**(-1.0)         
+          chi_imp = res[:]*chi_imp + prefactor*(1-res[:])*Uweiss[:]**(-1.0)         
       self.P_imp_iw[A].data[:,0,0] = chi_imp[:]/(Uweiss[:]*chi_imp[:] - 1.0)   
       for nui in range(self.nnu):
         if self.P_imp_iw[A].data[nui,0,0] != self.P_imp_iw[A].data[nui,0,0]:
@@ -1640,6 +1640,7 @@ class supercond_data(GW_data):
       self.Fkw[U] = -self.Xkw[U]/(abs(gkw)**2.0 + abs(self.Xkw[U])**2.0)
 
   def optimized_get_Fijtau(self, N_cores=1, su2_symmetry = True):
+    if mpi.is_master_node(): print "supercond_data.optimized_get_Fijtau"
     self.Fktau = {}
     self.Fijtau = {}
     for U in self.fermionic_struct.keys():
@@ -1650,8 +1651,8 @@ class supercond_data(GW_data):
       self.Fijtau['down'] = self.Fijtau['up']
 
   def optimized_get_Xkw(self, ising_decoupling = False, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1): #always call Xkw first, Pqnu second!!!
-    if mpi.is_master_node(): print "optimized_get_Xkw"
     self.optimized_get_Fijtau(N_cores, su2_symmetry)
+    if mpi.is_master_node(): print "optimized_get_Xkw"
     if ising_decoupling:
       m = {'0': 1, '1': 1}
     else:
@@ -1686,6 +1687,7 @@ class supercond_data(GW_data):
       self.Pqnu[A] += self.Qqnu[A]
 
   def optimized_get_leading_eigenvalue(self, max_it = 60, accr = 5e-4, ising_decoupling = True, p = {'0': -1, '1': 1}, su2_symmetry = True, N_cores = 1, symmetry = 'd'):
+   if mpi.is_master_node(): print "optimized_get_leading_eigenvalue"
     def construct_X():
       for U in self.fermionic_struct.keys():
         for n in [0,-1]:

@@ -41,7 +41,8 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             n_ks = [24], 
                             w_cutoff = 20.0,
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]], mix_Sigma = True,
-                            trilex = False, edmft = False, imtime = True, use_optimized = True, N_cores = 1, do_dmft_first = True,
+                            trilex = False, edmft = False, imtime = True, use_optimized = True, N_cores = 1, 
+                            do_dmft_first = True, try_to_converge_superconducting_afterwards = False,
                             use_cthyb=True, n_cycles=100000, max_time=10*60, accuracy = 1e-4,
                             print_local_frequency=5, print_non_local_frequency = 5,
                             initial_guess_archive_name = '', suffix=''):
@@ -163,6 +164,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     if ((h==0.0)or(h==0))and (not refresh_X):
       print "assigning GW_data.Pqnu because no h, no imposed X"
       old_get_Xkw = dt.get_Xkw #save the old one and put it back before returning data   
+      old_get_Pqnu = dt.get_Pqnu
       dt.get_Xkw = lambda: None
       if (not use_optimized) or (not imtime):
         dt.get_Pqnu = lambda: GW_data.get_Pqnu(dt, imtime = imtime, Lambda = Lam) 
@@ -393,6 +395,43 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     if (err==2): 
       print "Cautionary error!!! exiting..."
       break
+
+    if try_to_converge_superconducting_afterwards:
+      #get the leading eigenvalue and the corresponding eigenvector to be used as the initial guess for Xkw
+      if imtime and use_optimized:
+        dt.optimized_get_leading_eigenvalue(max_it = 60, accr = 5e-4, 
+                                          ising_decoupling = ising, 
+                                          N_cores = N_cores, symmetry = 'd')  #for now let's stick to plain d-wave
+      else:
+        dt.get_leading_eigenvalue(max_it = 60, accr = 5e-4, 
+                                          ising_decoupling = ising, symmetry = 'd')  #for now let's stick to plain d-wave
+      if mpi.is_master_node():
+        if dt.eig_ratio < 1.0:
+          print ">>>>>>>>>>> eig_ratio<1.0!! The sc calculation is not going to work, but will do it anyway"
+        dt.dump_all(suffix='-final') 
+        cmd = 'mv %s %s'%(filename, filename.replace("result", "result_normal")) 
+        print cmd
+        os.system(cmd)
+      
+      #put back in the supercond functions for Sigma and P 
+      dt.get_Xkw = old_get_Xkw
+      dt.get_Pqnu = old_get_Pqnu 
+
+      monitors.append( monitor( monitored_quantity = lambda: dt.Xkw['up'][dt.nw/2,0,dt.n_k/2].real, 
+                          h5key = 'Xkw_vs_it', 
+                          archive_name = dt.archive_name) )
+
+      # start from a small gap
+      dt.Xkw /= 10**6 
+
+      #run the calculation again
+      err = dmft.run( dt,
+                    n_loops_max=30, 
+                    n_loops_min=10,
+                    print_local=print_local_frequency, print_impurity_input=( 1 if loc_from_imp else 1000 ), print_three_leg=1, print_non_local=print_non_local_frequency,
+                    skip_self_energy_on_first_iteration=True,
+                    mix_after_selfenergy = True, 
+                    last_iteration_err_is_allowed = n_loops_max/2 )
 
     counter += 1
   if not (old_get_Xkw is None):

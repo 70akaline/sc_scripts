@@ -13,7 +13,12 @@ import pytriqs.utility.mpi as mpi
 #from glattice_tools.multivar import *  
 #from trilex.tools import *
 from cthyb_spin import Solver
-from ctint import SolverCore
+
+try:
+  from ctint import SolverCore
+except:
+  if mpi.is_master_node():
+    print "CTINT not installed"
 #from selfconsistency.useful_functions import adjust_n_points
 #from selfconsistency.provenance import hash_dict
 
