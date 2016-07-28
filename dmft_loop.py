@@ -36,7 +36,8 @@ class dmft_loop:
                      post_impurity = dummy,
                      selfenergy = dummy, 
                      convergers = [],
-                     mixers = [], 
+                     mixers = [],
+                     imp_mixers = [],
                      monitors = [],
                      after_it_is_done = None):
     self.cautionary = cautionary
@@ -47,6 +48,7 @@ class dmft_loop:
     self.selfenergy = selfenergy
     self.convergers = convergers
     self.mixers = mixers        
+    self.imp_mixers = imp_mixers 
     self.monitors = monitors     
     self.after_it_is_done = after_it_is_done 
 
@@ -56,7 +58,7 @@ class dmft_loop:
                 skip_self_energy_on_first_iteration=False,  #1 every iteration, 2 every second, -2 never (except for final)
                 mix_after_selfenergy = False, 
                 last_iteration_err_is_allowed = 15 ):
-    for mixer in self.mixers:
+    for mixer in (self.mixers + self.imp_mixers):
       mixer.get_initial()
     for conv in self.convergers:
       conv.reset()
@@ -113,10 +115,13 @@ class dmft_loop:
       mpi.barrier()
       self.impurity(data=data)
 
-      times.append((time(),"dump_impurity_output"))
+      times.append((time(),"dump_impurity_output and mix impurity"))
 
       if mpi.is_master_node():
         if (loop_index + 1) % print_local == 0: data.dump_solver(suffix='-%s'%loop_index)      
+
+      for mixer in self.imp_mixers:
+        mixer.mix(loop_index)
 
       times.append((time(),"post_impurity"))
 
@@ -208,11 +213,15 @@ class mixer:
     del self.mq_old
     self.get_initial()
 
-  def mix_gf(self, ratio):
+  def mix_block_gf(self, ratio):
     for name, m in self.mq():
       m << ratio*self.mq_old[name] + (1.0-ratio)*m
 
-  #def mix_regular(self, ratio): #THIS IS NOT GOING TO WORK
+  def mix_gf(self, ratio):
+    self.mq().data[:,0,0] = ratio*self.mq_old.data[:,0,0] + (1.0-ratio)*self.mq().data[:,0,0]
+
+
+  #def mix_regular(self, ratio): #THIS IS NOT GOING TO WORK #for now works only with mutable objects
   #  self.mq = ratio*self.mq_old + (1.0-ratio)*self.mq()
 
   def mix_lattice_gf(self, ratio):
@@ -297,7 +306,11 @@ class monitor:
     self.values = []
 
   def monitor(self):
-    self.values.append(copy.deepcopy(self.mq()))    
+    try:  
+      self.values.append(copy.deepcopy(self.mq()))    
+    except:
+      if mpi.is_master_node(): print "monitor: ",h5key," cound not read the value. appending nan..."
+      self.values.append(float('nan'))    
     if mpi.is_master_node() and (not (self.archive_name is None)):
       A = HDFArchive(self.archive_name)
       A[self.h5key] = self.values

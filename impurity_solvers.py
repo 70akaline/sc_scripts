@@ -122,6 +122,9 @@ class solvers:
        
         extract_Sigma_from_F_and_G(data.Sigma_imp_iw, data.solver.F_iw, data.G_imp_iw) #!!!! this thing fails when there are Jperp interactions
         #extract_Sigma_from_G0_and_G(data.Sigma_imp_iw, data.solver.G0_iw, data.G_imp_iw)
+        data.get_Sz()  #moved these in impurity!!!!! maybe not the best idea
+        data.get_chi_imp() 
+
 
       except Exception as e:
         import traceback, os.path, sys

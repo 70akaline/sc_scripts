@@ -459,7 +459,8 @@ class basic_data:
                       + self.three_leg_quantities
     if mpi.is_master_node():
       A = HDFArchive(archive_name, 'r')
-      for key in all_quantities:           
+      for key in all_quantities: 
+        print "loading ",key          
         try:
           if no_suffix_for_parameters_and_non_interacting and ((key in self.parameters) or (key in self.non_interacting_quantities)):
             vars(self)[key] = copy.deepcopy(A['%s'%(key)])
@@ -471,9 +472,10 @@ class basic_data:
           print "WARNING: key ",key," not found in archive!! "  
 
       del A
-
-    for key in all_quantities:
-      vars(self)[key] = copy.deepcopy( mpi.bcast(vars(self)[key]) ) 
+    if mpi.size!=1:
+      if mpi.is_master_node(): print "mpi.size = ",mpi.size, " will now broadcast all the read quantities"
+      for key in all_quantities:
+        vars(self)[key] = copy.deepcopy( mpi.bcast(vars(self)[key]) ) 
 
 
 class bosonic_data(basic_data):
@@ -654,11 +656,14 @@ class bosonic_data(basic_data):
       IBZ.resample(self.Jq[A], Jq_new, self.qs, qs_new)
       self.Jq[A] = copy.deepcopy(Jq_new)
       for key in self.non_local_bosonic_gfs:
-        npoints = len(vars(self)[key][A][:,0,0])
-        g = numpy.zeros((npoints, n_q_new, n_q_new),dtype=numpy.complex_)
-        for i in range(npoints):
-          IBZ.resample(vars(self)[key][A][i,:,:], g[i,:,:], self.qs, qs_new)
-        vars(self)[key][A] = copy.deepcopy(g)
+        try:
+          npoints = len(vars(self)[key][A][:,0,0])
+          g = numpy.zeros((npoints, n_q_new, n_q_new),dtype=numpy.complex_)
+          for i in range(npoints):
+            IBZ.resample(vars(self)[key][A][i,:,:], g[i,:,:], self.qs, qs_new)
+          vars(self)[key][A] = copy.deepcopy(g)
+        except:
+          if mpi.is_master_node(): print "WARNING: could not change ks for ",key,"[",A,"]"
     self.qs = copy.deepcopy(qs_new)
     self.n_q = n_q_new
 
@@ -683,10 +688,18 @@ class bosonic_data(basic_data):
         mats_freq.change_temperature_gf(vars(self)[key][A], bgf[A])
       vars(self)[key] = bgf.copy()
     for key in self.non_local_bosonic_gfs:        
-      for A in self.bosonic_struct.keys():
-        if len(vars(self)[key][A][:,0,0])==self.ntau:
-          vars(self)[key][A] = numpy.zeros((ntau_new, self.n_q, self.n_q),dtype=numpy.complex_) #no need to interpolate the time dependent quantities, just change size                 
-          continue 
+      for A in self.bosonic_struct.keys():        
+        try:  
+          if mpi.is_master_node(): print "  doing: ",key,"[",A,"]"," keys: ", vars(self)[key].keys()
+          if not (A in vars(self)[key].keys()):
+            if mpi.is_master_node(): print "    WARNING: skipping block ",A
+            continue
+          if len(vars(self)[key][A][:,0,0])==self.ntau:
+            vars(self)[key][A] = numpy.zeros((ntau_new, self.n_q, self.n_q),dtype=numpy.complex_) #no need to interpolate the time dependent quantities, just change size                 
+            continue 
+        except:
+          print "WARNING: could not change temperature for ",key
+          continue
         g = numpy.zeros((nnu_new, self.n_q, self.n_q),dtype=numpy.complex_)          
         for qxi in range(self.n_q):
           for qyi in range(self.n_q):
@@ -839,15 +852,19 @@ class fermionic_data(basic_data):
       IBZ.resample(self.epsilonk[U], epsilonk_new, self.ks, ks_new)
       self.epsilonk[U] = copy.deepcopy(epsilonk_new)
       for key in self.non_local_fermionic_gfs:
-        npoints = len(vars(self)[key][U][:,0,0])
-        g = numpy.zeros((npoints, n_k_new, n_k_new),dtype=numpy.complex_)
-        for i in range(npoints):
-          IBZ.resample(vars(self)[key][U][i,:,:], g[i,:,:], self.ks, ks_new)
-        vars(self)[key][U] = copy.deepcopy(g)
+        try:
+          npoints = len(vars(self)[key][U][:,0,0])
+          g = numpy.zeros((npoints, n_k_new, n_k_new),dtype=numpy.complex_)
+          for i in range(npoints):
+            IBZ.resample(vars(self)[key][U][i,:,:], g[i,:,:], self.ks, ks_new) 
+          vars(self)[key][U] = copy.deepcopy(g)
+        except:
+          if mpi.is_master_node(): print "WARNING: could not change ks for ",key,"[",U,"]"  
     self.ks = copy.deepcopy(ks_new)
     self.n_k = n_k_new
 
   def change_beta(self, beta_new, n_iw_new = None, finalize = True):
+    if mpi.is_master_node(): print ">>>>>>>> CHANGING BETA!!!!"
     if n_iw_new is None: n_iw_new = self.n_iw
     nw_new = n_iw_new*2
     ntau_new = 5*n_iw_new 
@@ -871,9 +888,17 @@ class fermionic_data(basic_data):
         mats_freq.change_temperature_gf(vars(self)[key][U], bgf[U])
       vars(self)[key] = bgf.copy()
     for key in self.non_local_fermionic_gfs:
-      for U in self.fermionic_struct.keys():       
-        if len(vars(self)[key][U][:,0,0])==self.ntau:
-          vars(self)[key][U] = numpy.zeros((ntau_new, self.n_k, self.n_k),dtype=numpy.complex_) #no need to interpolate the time dependent quantities, just change size                  
+      for U in self.fermionic_struct.keys():  
+        try: 
+          if mpi.is_master_node(): print "  doing: ",key,"[",U,"]"," keys: ", vars(self)[key].keys()
+          if not ( U in vars(self)[key].keys() ):
+            if mpi.is_master_node(): print "WARNING: skipping block",U
+            continue
+          if len(vars(self)[key][U][:,0,0])==self.ntau:
+            vars(self)[key][U] = numpy.zeros((ntau_new, self.n_k, self.n_k),dtype=numpy.complex_) #no need to interpolate the time dependent quantities, just change size                  
+            continue
+        except:
+          print "WARNING: could not change temperature for ",key
           continue
         g = numpy.zeros((nw_new, self.n_k, self.n_k),dtype=numpy.complex_)          
         for kxi in range(self.n_k):
@@ -969,6 +994,7 @@ class GW_data(edmft_data):
     self.Gtildekw = {}
     self.Gtildektau = {}
     for U in self.fermionic_struct.keys():
+      if mpi.is_master_node(): print "constructing fermionic_non_local_gfs, block: ", U
       self.Sigmakw[U] = numpy.zeros((self.nw, self.n_k, self.n_k), dtype=numpy.complex_)
       self.Sigmaktau[U] = numpy.zeros((self.ntau, self.n_k, self.n_k), dtype=numpy.complex_)
       self.Gtildekw[U] = numpy.zeros((self.nw, self.n_k,self.n_k), dtype=numpy.complex_)
@@ -1085,7 +1111,7 @@ class GW_data(edmft_data):
     for A in self.bosonic_struct.keys():       
       self.Wtildeeffijtau += m[A]*p[A]*self.Wtildeijtau[A]
     self.Sigmaijtau = {}
-    self.Sigmaktau = {}
+    #self.Sigmaktau = {}
     for U in self.fermionic_struct.keys():
       if su2_symmetry and (U != 'up'): continue
       self.Sigmaijtau[U] = - self.Gtildeijtau[U][:,:,:] * self.Wtildeeffijtau[::-1,:,:]
@@ -1641,7 +1667,7 @@ class supercond_data(GW_data):
 
   def optimized_get_Fijtau(self, N_cores=1, su2_symmetry = True):
     if mpi.is_master_node(): print "supercond_data.optimized_get_Fijtau"
-    self.Fktau = {}
+    #self.Fktau = {}
     self.Fijtau = {}
     for U in self.fermionic_struct.keys():
       if su2_symmetry and (U != 'up'): continue
@@ -1661,7 +1687,7 @@ class supercond_data(GW_data):
     for A in self.bosonic_struct.keys():       
       self.Wtildeeffijtau += m[A]*p[A]*self.Wtildeijtau[A]
     self.Xijtau = {}
-    self.Xktau = {}
+    #self.Xktau = {}
     for U in self.fermionic_struct.keys():
       if su2_symmetry and (U != 'up'): continue
       self.Xijtau[U] = - self.Fijtau[U][:,:,:] * self.Wtildeeffijtau[::-1,:,:]

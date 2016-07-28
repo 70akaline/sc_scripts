@@ -1,4 +1,4 @@
-def amoeba(var,scale,func,ftolerance=1.e-4,xtolerance=1.e-4,itmax=500,data=None):
+def amoeba(var,scale,func,ftolerance=1.e-4,xtolerance=1.e-4,itmax=500,data=None, known_max=None, known_max_accr=1e-4):
     '''Use the simplex method to maximize a function of 1 or more variables.
     
        Input:
@@ -99,6 +99,10 @@ def amoeba(var,scale,func,ftolerance=1.e-4,xtolerance=1.e-4,itmax=500,data=None)
         #print "ftolerance: ", ftolerance
         #print "simscale: ", simscale
         #print "xtolerance: ", xtolerance
+
+        if not (known_max is None):
+          if known_max-fvalue[ssbest]<known_max_accr:
+            return simplex[ssbest],fvalue[ssbest],iteration
 
         # have we converged?
         if (((ftolerance <= 0.0 or frange < ftolerance) and    # converged to maximum

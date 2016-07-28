@@ -635,9 +635,12 @@ class supercond_hubbard:
                                               data = [data, n],
                                               itmax=30,
                                               ftolerance=1e-2,
-                                              xtolerance=1e-2)
+                                              xtolerance=1e-2,
+                                              known_max = 1.0,
+                                              known_max_accr = 5e-5)
         if (varbest[0]>accepted_mu_range[0] and varbest[0]<accepted_mu_range[1]) and (abs(funcvalue-1.0)<1e-2): #change the bounds for large doping
           found = True 
+          func(varbest, [data, n])
           break 
         if l+1 == len(guesses):
           if mpi.is_master_node(): print "mu search FAILED: doing a scan..."
@@ -729,8 +732,8 @@ class supercond_EDMFTGW_hubbard(supercond_hubbard): #mu is no longer a parameter
   def post_impurity(data):    
     for U in data.fermionic_struct.keys():
       fit_and_overwrite_tails_on_Sigma(data.Sigma_imp_iw[U])     #Sigma_imp contains Hartree shift
-    data.get_Sz()
-    data.get_chi_imp() 
+    #data.get_Sz()  #moved these in impurity!!!!! maybe not the best idea
+    #data.get_chi_imp() 
     data.optimized_get_P_imp(use_caution=True)
 
 
