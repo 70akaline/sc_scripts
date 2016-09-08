@@ -84,40 +84,45 @@ class edmft: #deals with bosonic quantities, edmft style
       self.ccpower = ccpower
       self.ccrelax = ccrelax
 
-    @staticmethod
-    def get_safe_values(Jq, bosonic_struct, nqx, nqy):  #assumes P is negative
-      safe_values = {}
-      for A in bosonic_struct.keys():
-        min_value = 1000.0
-        for qxi in range(nqx):
-          for qyi in range(nqy):
-            if Jq[A][qxi,qyi]<min_value:
-              min_value = Jq[A][qxi,qyi]
-        if min_value == 0.0:
-          safe_values[A] = -float('inf')
-        else:
-          safe_values[A] = 1.0/min_value
-      return safe_values
+#    @staticmethod
+#    def get_safe_values(Jq, bosonic_struct, nqx, nqy):  #assumes P is negative
+#      safe_values = {}
+#      for A in bosonic_struct.keys():
+#        min_value = 1000.0
+#        for qxi in range(nqx):
+#          for qyi in range(nqy):
+#            if Jq[A][qxi,qyi]<min_value:
+#              min_value = Jq[A][qxi,qyi]
+#        if min_value == 0.0:
+#          safe_values[A] = -float('inf')
+#        else:
+#          safe_values[A] = 1.0/min_value
+#      return safe_values
  
     def reset(self):
       self.clip_counter = 0
 
-    def check_and_fix(self, data, finalize = True):
-      safe_values = self.get_safe_values(data.Jq, data.bosonic_struct, data.n_q, data.n_q)
- 
+    def check_and_fix(self, data, finalize = True, keep_P_negative = True):
+      #safe_values = self.get_safe_values(data.Jq, data.bosonic_struct, data.n_q, data.n_q)
+      safe_values = {}
+      for A in data.bosonic_struct.keys():
+        safe_values[A] = 1.0/numpy.amin(data.Jq[A])     
+      if mpi.is_master_node(): print "edmft.cautionary: safe_values: ", safe_values
+      #print "[Node",mpi.rank,"]","edmft.cautionary: actual safe values: (0,1) = ", 1.0/numpy.amin(data.Jq['0']),1.0/numpy.amin(data.Jq['1'])
       #operates directly on data.P_loc_iw as this is the one that will be used in chiqnu calculation
       clipped = False
   
       prefactor = 1.0 - self.ms0 / (self.clip_counter**self.ccpower + 1.0)
       for A in data.bosonic_struct.keys():
         for i in range(data.nnu):
-          if (data.P_loc_iw[A].data[i,0,0].real > 0):      
-            data.P_loc_iw[A].data[i,0,0] = 0.0
+          if keep_P_negative:
+            if (data.P_loc_iw[A].data[i,0,0].real > 0):      
+              data.P_loc_iw[A].data[i,0,0] = 0.0
             #clipped = True        
           if (data.P_loc_iw[A].data[i,0,0].real < safe_values[A]) and (safe_values[A]<0.0):      
             data.P_loc_iw[A].data[i,0,0] = prefactor*safe_values[A] + 1j*data.P_loc_iw[A].data[i,0,0].imag
             clipped = True        
-        
+            if mpi.is_master_node(): print "edmft.cautionary: clipping P_loc in block ",A
       if clipped and finalize: 
         self.clip_counter += 1 
       else: 
@@ -189,9 +194,10 @@ class GW:
     data.get_Pqnu() #gets Pqnu from Gkw
 
   class cautionary(edmft.cautionary): #makes sure divergence in propagators is avoided
-    def check_and_fix(self, data):
+    def check_and_fix(self, data, keep_P_negative = True):
       #operates directly on data.P_loc_iw as this is the one that will be used in chiqnu calculation
-      clipped = edmft.cautionary.check_and_fix(self, data, finalize=False)
+      clipped = edmft.cautionary.check_and_fix(self, data, finalize=False, keep_P_negative=keep_P_negative)
+      if clipped and mpi.is_master_node(): print "GW.cautionary.check_and_fix: edmft.cautionary clipped "
       prefactor = 1.0 - self.ms0 / (self.clip_counter**self.ccpower + 1.0)
 
       for A in data.bosonic_struct.keys():
@@ -199,7 +205,8 @@ class GW:
         data.Pqnu[A][:,:,:] = (1-res[:,:,:])*data.Pqnu[A][:,:,:] + res[:,:,:]*(data.Jq[A][:,:])**(-1.0)*prefactor
         if not (numpy.sum(res) == 0): 
           clipped = True                     
-          print "GW.cautionary.check_and_fix: Too negative Polarization!!! Clipping to large value in block ",A
+          #if mpi.is_master_node():
+          if mpi.is_master_node(): print "GW.cautionary.check_and_fix: Too negative Polarization!!! Clipping to large value in block ",A
 
       #for A in data.bosonic_struct.keys():
       #  for nui in range(data.m_to_nui(-3),data.m_to_nui(3)): #careful with the range
@@ -208,15 +215,42 @@ class GW:
       #        if  ( data.Pqnu[A][nui,qxi,qyi].real < (data.Jq[A][qxi,qyi])**(-1.0) ) and (data.Jq[A][qxi,qyi]<0.0) : #here we assume P is negative
       #          data.Pqnu[A][nui,qxi,qyi] = prefactor*(data.Jq[A][qxi,qyi])**(-1.0) + 1j*data.Pqnu[A][nui,qxi,qyi].imag
       #          clipped = True        
-        res2 = numpy.less_equal(data.Pqnu[A][:,:,:].real, 0.0 )
-        if not numpy.all(res2):
-          if mpi.is_master_node():
-            print "GW.cautionary.check_and_fix: Positive Polarization!!! Clipping to zero in block ",A
-          data.Pqnu[A][:,:,:] = data.Pqnu[A][:,:,:]*res2[:,:,:]
-          clipped = True 
-      if clipped: 
+        if keep_P_negative:
+          res2 = numpy.less_equal(data.Pqnu[A][:,:,:].real, 0.0 )
+          if not numpy.all(res2):
+            if mpi.is_master_node(): print "GW.cautionary.check_and_fix: Positive Polarization!!! Clipping to zero in block ",A
+            data.Pqnu[A][:,:,:] = data.Pqnu[A][:,:,:]*res2[:,:,:]
+            clipped = True 
+
+      nan_found = False
+      for U in data.fermionic_struct.keys():
+        if numpy.any(numpy.isnan(data.Sigmakw[U])):
+          nan_found=True
+          if mpi.is_master_node(): print "GW.cautionary.check_and_fix: nan in Sigmakw[",U,"]"
+        if numpy.any(numpy.isnan(data.Sigma_loc_iw[U].data[:,0,0])):
+          nan_found=True
+          if mpi.is_master_node(): print "GW.cautionary.check_and_fix: nan in Sigma_loc_iw[",U,"]"
+      for A in data.bosonic_struct.keys():
+        if numpy.any(numpy.isnan(data.Pqnu[A])):
+          nan_found=True
+          if mpi.is_master_node(): print "GW.cautionary.check_and_fix: nan in Pqnu[",A,"]"
+        if numpy.any(numpy.isnan(data.P_loc_iw[A].data[:,0,0])):
+          nan_found=True
+          if mpi.is_master_node(): print "GW.cautionary.check_and_fix: nan in P_loc_iw[",A,"]"
+      if nan_found: 
+        #if mpi.is_master_node():
+        print "[Node",mpi.rank,"]","exiting to system..."
         if mpi.is_master_node():
-          print "GW.cautionary.check_and_fix: CLIPPED!!"
+          data.dump_all(archive_name="black_box_nan", suffix='')
+        mpi.barrier()
+        quit()      
+
+      #print ">>>>>>> [Node",mpi.rank,"] Sigmakw", data.Sigmakw['up'][data.nw/2,0,0]
+      #print ">>>>>>> [Node",mpi.rank,"] Pqnu 0", data.Pqnu['0'][data.nnu/2,0,0]
+      #print ">>>>>>> [Node",mpi.rank,"] Pqnu 1", data.Pqnu['1'][data.nnu/2,0,0]
+
+      if clipped: 
+        if mpi.is_master_node(): print "GW.cautionary.check_and_fix: CLIPPED!!"
         self.clip_counter += 1 
       else: 
         self.clip_counter = self.clip_counter/self.ccrelax 
@@ -577,7 +611,6 @@ class supercond_hubbard:
           data.Sigmakw[U][:,:,:] = 0.5*( data.Sigmakw[U][:,:,:]+numpy.conj(data.Sigmakw[U][::-1,:,:]) )
           data.Sigma_loc_iw[U].data[:,0,0] = 0.5*( data.Sigma_loc_iw[U].data[:,0,0] +numpy.conj(data.Sigma_loc_iw[U].data[::-1,0,0]) )
 
-
       self.refresh_X(data)
       #if (self.it_counter >= 5) and (self.it_counter < 8):
       #  for U in data.fermionic_struct.keys():
@@ -594,7 +627,7 @@ class supercond_hubbard:
 
 
   @staticmethod 
-  def lattice(data, frozen_boson, n, ph_symmetry, accepted_mu_range=[-0.8,0.3]):
+  def lattice(data, frozen_boson, n, ph_symmetry, accepted_mu_range=[-2.0,2.0]):
     def get_n(dt):
       dt.get_Gkw_direct() #gets Gkw from w, mu, epsilon and Sigma and X
       dt.get_Fkw_direct() #gets Fkw from w, mu, epsilon and Sigma and X
@@ -727,6 +760,9 @@ class supercond_EDMFTGW_hubbard(supercond_hubbard): #mu is no longer a parameter
     else: data.solver.Jperp_iw << 0.0
  
     data.U_inf = U
+    #print "[Node",mpi.rank,"]","supercond_EDMFTGW_hubbard.pre_impurity: U_inf: ", data.U_inf
+    #print "[Node",mpi.rank,"]","supercond_EDMFTGW_hubbard.pre_impurity: data.Jq['0'][0,0]", data.Jq['0'][0,0]
+    #print "[Node",mpi.rank,"]","supercond_EDMFTGW_hubbard.pre_impurity: data.Jq['1'][0,0]", data.Jq['1'][0,0]
 
   @staticmethod 
   def post_impurity(data):    
@@ -734,7 +770,7 @@ class supercond_EDMFTGW_hubbard(supercond_hubbard): #mu is no longer a parameter
       fit_and_overwrite_tails_on_Sigma(data.Sigma_imp_iw[U])     #Sigma_imp contains Hartree shift
     #data.get_Sz()  #moved these in impurity!!!!! maybe not the best idea
     #data.get_chi_imp() 
-    data.optimized_get_P_imp(use_caution=True)
+    data.optimized_get_P_imp()
 
 
 #--------------------supercond trilex hubbard model---------------------------------------#
@@ -746,11 +782,11 @@ class supercond_trilex_hubbard(supercond_EDMFTGW_hubbard):
       print "INITIALIZED supercond_trilex_hubbard"
 
   @staticmethod 
-  def post_impurity(data):    
-    supercond_EDMFTGW_hubbard.post_impurity(data)
+  def post_impurity(data):        
     data.get_chi3_imp()
     data.get_chi3tilde_imp()
     data.get_Lambda_imp()
+    supercond_EDMFTGW_hubbard.post_impurity(data)
         
 
 #--------------------supercond trilex tUVJ model, HS-VJ scheme (only non-local interactions are decoupled - reduces to DFMT if V and J are zero)---------------------------------------#

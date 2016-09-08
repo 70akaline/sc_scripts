@@ -52,7 +52,7 @@ class dmft_loop:
     self.monitors = monitors     
     self.after_it_is_done = after_it_is_done 
 
-  def run(self, data, 
+  def run(self, data, calculation_name='', total_debug = False,
                 n_loops_max=100, n_loops_min=5, 
                 print_local=1, print_impurity_input=1, print_non_local=1, print_three_leg=1, print_impurity_output=1,
                 skip_self_energy_on_first_iteration=False,  #1 every iteration, 2 every second, -2 never (except for final)
@@ -114,7 +114,7 @@ class dmft_loop:
 
       mpi.barrier()
       self.impurity(data=data)
-
+      mpi.barrier()
       times.append((time(),"dump_impurity_output and mix impurity"))
 
       if mpi.is_master_node():
@@ -157,9 +157,18 @@ class dmft_loop:
         A = HDFArchive(data.archive_name)
         A['max_index'] = loop_index
         del A
+      mpi.barrier()
+
+      if (mpi.rank==0 or mpi.rank==1) and total_debug: #total debug option
+        archive_name = 'full_data'
+        if calculation_name !='':
+          archive_name += '_%s'%calculation_name
+        archive_name += '.rank%s'%(mpi.rank) 
+        print "about to dump all data in ",archive_name
+        data.dump_all(suffix='-%s'%loop_index, archive_name=archive_name)
 
       times.append((time(),""))
-
+      mpi.barrier()
       if mpi.is_master_node():
         self.print_timings(times)
 
@@ -168,9 +177,11 @@ class dmft_loop:
     if not (self.after_it_is_done is None):
       self.after_it_is_done(data) #notice that if we don't say data=data we can pass a method of data for after_it_is_done, such that here self=data    
 
+    if mpi.is_master_node():
+      data.dump_all(suffix='-final') 
+
+    mpi.barrier()
     if converged:
-      if mpi.is_master_node():
-        data.dump_all(suffix='-final') 
       return 0  
     else:
       if failed:

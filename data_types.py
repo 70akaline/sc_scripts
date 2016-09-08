@@ -440,7 +440,7 @@ class basic_data:
       except:
         print "solver cannot be dumped!" 
     self.dump_errors(archive_name, suffix)
-    #self.dump_parameters(archive_name, suffix)
+    self.dump_parameters(archive_name, suffix)
     self.dump_scalar(archive_name, suffix)
     self.dump_local(archive_name, suffix)
     self.dump_non_interacting(archive_name, suffix)
@@ -602,22 +602,29 @@ class bosonic_data(basic_data):
   def get_P_imp(self, func):
     self.get_bosonic_loc_direct(self.P_imp_iw, lambda A,i: func[A](self.chi_imp_iw[A].data[i,0,0], self.Uweiss_iw[A].data[i,0,0]) )
 
-  def optimized_get_P_imp(self, use_caution=True, prefactor=0.99):
-    for A in self.bosonic_struct.keys():
+  def optimized_get_P_imp(self, use_caution=True, prefactor=0.99, use_local_bubble_for_charge = False):
+    if use_local_bubble_for_charge:
+       if mpi.is_master_node(): print "using local bubble for charge P_loc_iw"
+       self.get_P_loc_from_local_bubble(imtime = False, P = None, su2_symmetry=True, nui_list = [], Lambda = self.Lambda_wrapper)
+     
+    for A in self.bosonic_struct.keys():      
       chi_imp = copy.deepcopy(self.chi_imp_iw[A].data[:,0,0])
       chi_imp[:] += numpy.less_equal(chi_imp[:],0.0)*1e-10
       Uweiss = copy.deepcopy(  self.Uweiss_iw[A].data[:,0,0] )
       if use_caution: #makesure that U < chi^-1 so that P is negative. P = 1/(U - chi^-1) = chi/(U chi - 1)
         res = numpy.less(Uweiss[:], chi_imp[:]**(-1.0) )
-        if not numpy.all(res) and mpi.is_master_node(): 
-          print "optimized_get_P_imp: WARNING!!! clipping chi_imp in block ",A
+        if not numpy.all(res): 
+          if mpi.is_master_node(): print "optimized_get_P_imp: WARNING!!! clipping chi_imp in block ",A
           self.err = True
           chi_imp = res[:]*chi_imp + prefactor*(1-res[:])*Uweiss[:]**(-1.0)         
-      self.P_imp_iw[A].data[:,0,0] = chi_imp[:]/(Uweiss[:]*chi_imp[:] - 1.0)   
+      if use_local_bubble_for_charge and A=='0':
+        self.P_imp_iw_test[A].data[:,0,0] = chi_imp[:]/(Uweiss[:]*chi_imp[:] - 1.0)   
+      else:
+        self.P_imp_iw[A].data[:,0,0] = chi_imp[:]/(Uweiss[:]*chi_imp[:] - 1.0)   
       for nui in range(self.nnu):
-        if self.P_imp_iw[A].data[nui,0,0] != self.P_imp_iw[A].data[nui,0,0]:
-          self.P_imp_iw[A].data[nui,0,0] = -1e-10
-
+        if numpy.isnan(self.P_imp_iw[A].data[nui,0,0]):
+          self.P_imp_iw[A].data[nui,0,0] = -100.0
+      
   def get_Wqnu_from_func(self, func):
     self.get_q_dependent(self.Wqnu, lambda A,i,qx,qy: func[A](self.P_loc_iw[A].data[i,0,0],self.Jq[A][qx,qy]) )
   
@@ -697,7 +704,8 @@ class bosonic_data(basic_data):
           if len(vars(self)[key][A][:,0,0])==self.ntau:
             vars(self)[key][A] = numpy.zeros((ntau_new, self.n_q, self.n_q),dtype=numpy.complex_) #no need to interpolate the time dependent quantities, just change size                 
             continue 
-        except:
+        except Exception as e:
+          print e
           print "WARNING: could not change temperature for ",key
           continue
         g = numpy.zeros((nnu_new, self.n_q, self.n_q),dtype=numpy.complex_)          
@@ -1434,6 +1442,7 @@ class trilex_data(GW_data):
 
     self.Sigma_imp_iw_test = self.Sigma_imp_iw.copy()
     self.P_imp_iw_test = self.P_imp_iw.copy()
+    self.local_quantities.append('P_imp_iw_test')
 
     self.get_Sigma_test = partial(self.get_Sigma_loc_from_local_bubble, Sigma = self.Sigma_imp_iw_test, Lambda=self.Lambda_wrapper)
     self.get_P_test = partial(self.get_P_loc_from_local_bubble, P = self.P_imp_iw_test, Lambda=self.Lambda_wrapper)
@@ -1478,16 +1487,22 @@ class trilex_data(GW_data):
       if '0' in self.bosonic_struct.keys():
         self.chi3tilde_imp_wnu['0'][wi_v,0] += 2.0*self.beta*self.G_loc_iw['up'].data[wi,0,0]*self.ns['up']
 
-  def get_Lambda_imp(self):
+  def get_Lambda_imp(self, use_W_loc_for_charge = True):
     for wi_v in range(self.nw_v):
       wi = self.wi_v_to_wi(wi_v)
       for nui_v in range(self.nnu_v):
         nui = self.nui_v_to_nui(nui_v)
         for A in self.bosonic_struct.keys():
-          self.Lambda_imp_wnu[A][wi_v,nui_v] = self.chi3tilde_imp_wnu[A][wi_v,nui_v] \
+          if ((not use_W_loc_for_charge) or (A!='0')): 
+            self.Lambda_imp_wnu[A][wi_v,nui_v] = self.chi3tilde_imp_wnu[A][wi_v,nui_v] \
                                                 / ( self.G_loc_iw['up'].data[wi,0,0] * \
                                                     self.local_fermionic_gf_wrapper(wi+nui_v, key='up', g=self.G_loc_iw) * \
                                                     (1.0 - self.Uweiss_iw[A].data[nui,0,0]*self.chi_imp_iw[A].data[nui,0,0])  )
+          else:
+            self.Lambda_imp_wnu[A][wi_v,nui_v] = self.chi3tilde_imp_wnu[A][wi_v,nui_v] * self.Uweiss_iw[A].data[nui,0,0] \
+                                                / ( self.G_loc_iw['up'].data[wi,0,0] * \
+                                                    self.local_fermionic_gf_wrapper(wi+nui_v, key='up', g=self.G_loc_iw) * \
+                                                    self.W_loc_iw[A].data[nui,0,0]  )
 
   def Lambda_wrapper(self, A, wi, nui, fit_Lambda_tail=False):
     #Lambda*(iw,-inu) = Lambda(-iw,inu)
