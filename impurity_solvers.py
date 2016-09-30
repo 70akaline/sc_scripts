@@ -116,12 +116,30 @@ class solvers:
           )
  
         data.G_imp_iw << data.solver.G_iw   
+
+        get_Sigma_from_G_and_G0 = False   
+        for U in data.fermionic_struct.keys():
+          if numpy.any(numpy.isnan(data.G_imp_iw[U].data[:,0,0])) or numpy.any(numpy.isnan(data.solver.F_iw[U].data[:,0,0])):
+            if numpy.any(numpy.isnan(data.G_imp_iw[U].data[:,0,0])):
+              print "[Node",mpi.rank,"]"," nan in F_imp and G_imp!!! exiting to system..."
+              if mpi.is_master_node():
+                data.dump_all(archive_name="black_box_nan", suffix='')          
+                cthyb.dump(data.solver, archive_name="black_box_nan", suffix='')
+              mpi.barrier()
+              quit()      
+            else:
+              print "[Node",mpi.rank,"]"," nan in F but not in G!! will be calculating Sigma from G and G0"
+              get_Sigma_from_G_and_G0 = True
+         
+
         if symmetrize_quantities:  
           symmetrize_blockgf(data.G_imp_iw, data.fermionic_struct)
           symmetrize_blockgf(data.solver.F_iw, data.fermionic_struct)
        
-        extract_Sigma_from_F_and_G(data.Sigma_imp_iw, data.solver.F_iw, data.G_imp_iw) #!!!! this thing fails when there are Jperp interactions
-        #extract_Sigma_from_G0_and_G(data.Sigma_imp_iw, data.solver.G0_iw, data.G_imp_iw)
+        if not get_Sigma_from_G_and_G0:
+          extract_Sigma_from_F_and_G(data.Sigma_imp_iw, data.solver.F_iw, data.G_imp_iw) #!!!! this thing fails when the S S boson is not SU(2) symmetric
+        else:
+          extract_Sigma_from_G0_and_G(data.Sigma_imp_iw, data.solver.G0_iw, data.G_imp_iw)
         data.get_Sz()  #moved these in impurity!!!!! maybe not the best idea
         data.get_chi_imp() 
 
@@ -251,6 +269,15 @@ def fit_and_overwrite_tails_on_Sigma(Sigma_iw, starting_iw=14.0):
   nmax = Sigma_iw.mesh.last_index()
   nmin = int(((starting_iw*Sigma_iw.beta)/math.pi-1.0)/2.0) #the matsubara index at iw_n = starting_iw
   Sigma_iw.fit_tail(fixed_coeff, 5, nmin, nmax, True)
+
+def fit_and_overwrite_tails_on_G(G_iw, starting_iw=14.0):
+  fixed_coeff = TailGf(1,1,3,-1)
+  fixed_coeff[-1] = array([[0.]])
+  fixed_coeff[0] = array([[0.]])
+  fixed_coeff[1] = array([[1.]])
+  nmax = G_iw.mesh.last_index()
+  nmin = int(((starting_iw*G_iw.beta)/math.pi-1.0)/2.0) #the matsubara index at iw_n = starting_iw
+  G_iw.fit_tail(fixed_coeff, 5, nmin, nmax, True)
 
 def symmetrize_blockgf(Q, struct):
   Qcopy = copy.deepcopy(Q)

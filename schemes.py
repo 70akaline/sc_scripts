@@ -241,7 +241,7 @@ class GW:
         #if mpi.is_master_node():
         print "[Node",mpi.rank,"]","exiting to system..."
         if mpi.is_master_node():
-          data.dump_all(archive_name="black_box_nan", suffix='')
+          data.dump_all(archive_name="black_box_nan", suffix='')          
         mpi.barrier()
         quit()      
 

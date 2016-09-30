@@ -602,14 +602,18 @@ class bosonic_data(basic_data):
   def get_P_imp(self, func):
     self.get_bosonic_loc_direct(self.P_imp_iw, lambda A,i: func[A](self.chi_imp_iw[A].data[i,0,0], self.Uweiss_iw[A].data[i,0,0]) )
 
-  def optimized_get_P_imp(self, use_caution=True, prefactor=0.99, use_local_bubble_for_charge = False):
+  def optimized_get_P_imp(self, use_caution=True, prefactor=0.99, use_local_bubble_for_charge = False, imtime=False):
     if use_local_bubble_for_charge:
        if mpi.is_master_node(): print "using local bubble for charge P_loc_iw"
-       self.get_P_loc_from_local_bubble(imtime = False, P = None, su2_symmetry=True, nui_list = [], Lambda = self.Lambda_wrapper)
+       #self.get_P_loc_from_local_bubble(imtime = imtime, P = None, su2_symmetry=True, nui_list = [], Lambda = self.Lambda_wrapper)
+       self.get_P_loc_from_local_bubble()
+       #this will fill in P_loc, but we want it in P_imp
+       self.P_imp_iw << self.P_loc_iw
+       #P_loc will get overwritten by P_imp in lattice part
      
     for A in self.bosonic_struct.keys():      
       chi_imp = copy.deepcopy(self.chi_imp_iw[A].data[:,0,0])
-      chi_imp[:] += numpy.less_equal(chi_imp[:],0.0)*1e-10
+      chi_imp[:] += numpy.less_equal(chi_imp[:],0.0)*(-chi_imp[:]+0.01)
       Uweiss = copy.deepcopy(  self.Uweiss_iw[A].data[:,0,0] )
       if use_caution: #makesure that U < chi^-1 so that P is negative. P = 1/(U - chi^-1) = chi/(U chi - 1)
         res = numpy.less(Uweiss[:], chi_imp[:]**(-1.0) )
@@ -618,11 +622,19 @@ class bosonic_data(basic_data):
           self.err = True
           chi_imp = res[:]*chi_imp + prefactor*(1-res[:])*Uweiss[:]**(-1.0)         
       if use_local_bubble_for_charge and A=='0':
+        self.P_imp_iw_test = self.P_imp_iw.copy() 
+        if not ('P_imp_iw_test' in self.local_bosonic_gfs ): self.local_bosonic_gfs.append('P_imp_iw_test')
         self.P_imp_iw_test[A].data[:,0,0] = chi_imp[:]/(Uweiss[:]*chi_imp[:] - 1.0)   
       else:
-        self.P_imp_iw[A].data[:,0,0] = chi_imp[:]/(Uweiss[:]*chi_imp[:] - 1.0)   
-      for nui in range(self.nnu):
+        self.P_imp_iw[A].data[:,0,0] = chi_imp[:]/(Uweiss[:]*chi_imp[:] - 1.0)  
+        #if chi_imp<0 just put P to zero
+        count = numpy.sum(numpy.less_equal(self.chi_imp_iw[A].data[:,0,0],0.0))
+        if count!=0:
+          if mpi.is_master_node(): print "chi_imp<0 in block: ",A, " setting P zero in ",count," matsubara points"
+        self.P_imp_iw[A].data[:,0,0] -= self.P_imp_iw[A].data[:,0,0]*(numpy.less_equal(self.chi_imp_iw[A].data[:,0,0],0.0)) 
+      for nui in range(self.nnu):        
         if numpy.isnan(self.P_imp_iw[A].data[nui,0,0]):
+          if mpi.is_master_node(): print "found nan in P_imp_iw[",A,"] at nui=",nui," i.e. nu=",self.nus[nui]
           self.P_imp_iw[A].data[nui,0,0] = -100.0
       
   def get_Wqnu_from_func(self, func):
@@ -1212,7 +1224,11 @@ class GW_data(edmft_data):
     return g[key].data[nui,0,0]
 
   def get_Sigmakw(self, imtime = False, simple = False, use_IBZ_symmetry = True, ising_decoupling=False, su2_symmetry=True, wi_list = [],  Lambda = lambda A, wi, nui: 1.0):
-    if mpi.is_master_node(): print "GW_data.get_Sigmakw" 
+    if mpi.is_master_node(): 
+      print "GW_data.get_Sigmakw" 
+      print "  Lambda check: Lambda('0',nw/2, nnu/2)", Lambda('0',self.nw/2, self.nnu/2)
+      print "  Lambda check: Lambda('1',nw/2, nnu/2)", Lambda('1',self.nw/2, self.nnu/2)
+
     assert self.n_k == self.n_q, "ERROR: for bubble calcuation it is necessary that bosonic and fermionic quantities have the same discretization of IBZ"
     if not imtime:
       bubble.full.Sigma\
@@ -1252,7 +1268,10 @@ class GW_data(edmft_data):
         numpy.transpose(self.Sigmakw[U])[:] += self.Sigma_loc_iw[U].data[:,0,0]
 
   def get_Pqnu(self, imtime = False, simple = False, use_IBZ_symmetry = True, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
-    if mpi.is_master_node(): print "GW_data.get_Pqnu" 
+    if mpi.is_master_node(): 
+      print "GW_data.get_Pqnu" 
+      print "  Lambda check: Lambda('0',nw/2, nnu/2)", Lambda('0',self.nw/2, self.nnu/2)
+      print "  Lambda check: Lambda('1',nw/2, nnu/2)", Lambda('1',self.nw/2, self.nnu/2)
     if not imtime:
       bubble.full.P\
                 ( self.fermionic_struct, self.bosonic_struct, 
@@ -1352,7 +1371,10 @@ class GW_data(edmft_data):
 
 
   def get_P_loc_from_local_bubble(self, imtime = False, P = None, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
-    if mpi.is_master_node(): print "get_P_loc_from_local_bubble"
+    if mpi.is_master_node():
+      print "get_P_loc_from_local_bubble"
+      print "  Lambda check: Lambda('0',nw/2, nnu/2)", Lambda('0',self.nw/2, self.nnu/2)
+      print "  Lambda check: Lambda('1',nw/2, nnu/2)", Lambda('1',self.nw/2, self.nnu/2)
     if P is None: P = self.P_loc_iw
     if not imtime:
       P_dict = {}
@@ -1510,7 +1532,8 @@ class trilex_data(GW_data):
     #but we are truncating the imaginary part!!!!
     if not (self.LastLambdaEvaluated_result is None):
       if (self.LastLambdaEvaluated_wi == wi) and\
-         (self.LastLambdaEvaluated_nui == nui):
+         (self.LastLambdaEvaluated_nui == nui) and\
+         (self.LastLambdaEvaluated_A == A):
         return self.LastLambdaEvaluated_result
     result = None 
     wi_v = self.wi_to_wi_v(wi)
@@ -1536,6 +1559,7 @@ class trilex_data(GW_data):
     self.LastLambdaEvaluated_result = result
     self.LastLambdaEvaluated_wi = wi
     self.LastLambdaEvaluated_nui = nui
+    self.LastLambdaEvaluated_A = A
     return result 
 
   def change_beta(self, beta_new, n_iw_new=None, n_iw_f_new=None, n_iw_b_new=None, finalize = True):
@@ -1780,7 +1804,9 @@ class supercond_data(GW_data):
     self.get_Fkw_direct = lambda: self.__class__.get_Fkw_direct(self)
 
   def get_Xkw(self, imtime = False, simple = False, use_IBZ_symmetry = False, ising_decoupling=False, su2_symmetry=True, wi_list = [],  Lambda = lambda A, wi, nui: 1.0):
-    if mpi.is_master_node(): print "supercond_data.get_Xkw" 
+    if mpi.is_master_node(): 
+     print "supercond_data.get_Xkw" 
+     print "Lambda check: Lambda[0,nw/2,nnu/2]: ",Lambda("0",self.nw/2,self.nnu/2)
     assert self.n_k == self.n_q, "ERROR: for bubble calcuation it is necessary that bosonic and fermionic quantities have the same discretization of IBZ"
     if not imtime:
       bubble.full.Sigma\
@@ -1896,7 +1922,10 @@ class supercond_data(GW_data):
     for it in range(max_it):
       construct_F()
       Xkwcopy = copy.deepcopy(self.Xkw)
-      self.get_Xkw(ising_decoupling=ising_decoupling)
+      try: 
+        self.get_Xkw(ising_decoupling=ising_decoupling)
+      except:  
+        self.get_Xkw()
       ratio = norm(self.Xkw[self.fermionic_struct.keys()[0]])
       diff = norm(Xkwcopy[self.fermionic_struct.keys()[0]]-self.Xkw[self.fermionic_struct.keys()[0]]/ratio)
 	    

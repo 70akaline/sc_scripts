@@ -257,7 +257,7 @@ class converger:
     self.struct = struct
     self.h5key = h5key
 
-    print "converger initiialized: archive_name: %s h5key: %s accr: %s"%(archive_name,h5key,accuracy) 
+    if mpi.is_master_node(): print "converger initiialized: archive_name: %s h5key: %s accr: %s"%(archive_name,h5key,accuracy) 
 
   def reset(self):
     self.get_initial()
