@@ -7,6 +7,8 @@ import pytriqs.utility.mpi as mpi
 from data_types import IBZ
 import copy
 
+from first_include import *
+
 ################################ general initializers ##########################################
 
 def sgn(x):
@@ -200,9 +202,10 @@ class bubble:
                     func = None, fermionic_G2 = False ):      
       res = numpy.zeros((ntau,nk,nk), dtype=numpy.complex_) 
       for taui in range(ntau):
-        if taui % mpi.size != mpi.rank: continue       
+        if not MASTER_SLAVE_ARCHITECTURE:
+          if taui % mpi.size != mpi.rank: continue       
         res[taui,:,:] += Lambda(0,0) * func(nk = nk,  G1 = lambda kxi, kyi: G1(taui,kxi,kyi), G2 = lambda kxi, kyi: G2(-1-taui,kxi,kyi))
-      res[:,:,:] = mpi.all_reduce(0, res, 0)       
+      if not MASTER_SLAVE_ARCHITECTURE: res[:,:,:] = mpi.all_reduce(0, res, 0)       
       return res
 
     @staticmethod
@@ -212,9 +215,10 @@ class bubble:
                     fermionic_G2 = False ): 
       res = numpy.zeros((ntau), dtype=numpy.complex_) 
       for taui in range(ntau):
-        if taui % mpi.size != mpi.rank: continue      
+        if not MASTER_SLAVE_ARCHITECTURE: 
+          if taui % mpi.size != mpi.rank: continue      
         res[taui] += Lambda(0, 0) * G1(taui) * G2(-1-taui)
-      res[:] = mpi.all_reduce(0, res, 0)    
+      if not MASTER_SLAVE_ARCHITECTURE: res[:] = mpi.all_reduce(0, res, 0)    
       return res
 
   class wsum:   
@@ -226,12 +230,14 @@ class bubble:
                     func = None ): #for func use bubble.ksum.FT or bubble.ksum.simple partially evaluated for use_IBZ_symmetry
       res = numpy.zeros((nw1,nk,nk), dtype=numpy.complex_) 
       for wi1 in (range(nw1) if wi1_list==[] else wi1_list):        
-        if wi1 % mpi.size != mpi.rank: continue       
+        if not MASTER_SLAVE_ARCHITECTURE: 
+          if wi1 % mpi.size != mpi.rank: continue       
         #print "wi1: ", wi1
+        #print mpi.rank, 
         for wi2 in range(nw2):
           wi12 = freq_sum(wi1,wi2)
           res[wi1,:,:] += Lambda(wi1, wi2) * func(nk = nk,  G1 = lambda kxi, kyi: G1(wi12,kxi,kyi), G2 = lambda kxi, kyi: G2(wi2,kxi,kyi))
-      res[:,:,:] = mpi.all_reduce(0, res, 0)       
+      if not MASTER_SLAVE_ARCHITECTURE: res[:,:,:] = mpi.all_reduce(0, res, 0)       
       return res/beta
 
     @staticmethod
@@ -242,7 +248,8 @@ class bubble:
                     symmetrize_wi2_range = False ): 
       res = numpy.zeros((nw1), dtype=numpy.complex_)      
       for wi1 in (range(nw1) if wi1_list==[] else wi1_list):      
-        if wi1 % mpi.size != mpi.rank: continue      
+        if not MASTER_SLAVE_ARCHITECTURE:
+          if wi1 % mpi.size != mpi.rank: continue      
         if (wi2_list != []):
           if symmetrize_wi2_range:
             wi2_list_shifted = [wi2-wi1 for wi2 in wi2_list]
@@ -251,7 +258,7 @@ class bubble:
         for wi2 in  (range(nw2) if wi2_list==[] else wi2_list_shifted):
           wi12 = freq_sum(wi1,wi2) 
           res[wi1] += Lambda(wi1, wi2) * G1(wi12) * G2(wi2)
-      res[:] = mpi.all_reduce(0, res, 0)    
+      if not MASTER_SLAVE_ARCHITECTURE: res[:] = mpi.all_reduce(0, res, 0)    
       #print "local bubble: res[nw1/2]: ",   res[nw1/2]
       return res/beta
 
@@ -263,6 +270,7 @@ class bubble:
                su2_symmetry, ising_decoupling, 
                p = {'0': 1.0, '1': 1.0, 'z': 1.0, 'c': 2.0},
                overwrite = True ):
+      if mpi.is_master_node(): print "MSA: ",MASTER_SLAVE_ARCHITECTURE 
       for U in fermionic_struct.keys():
         if su2_symmetry and U!='up': continue      
         if overwrite: Sigma[U].fill(0.0) 

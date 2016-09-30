@@ -16,7 +16,7 @@ from time import *
 #from cthyb_spin import Solver  
 #from selfconsistency.useful_functions import adjust_n_points
 #from selfconsistency.provenance import hash_dict
-
+from first_include import *
 
 def sgn(x):
   if x>=0: 
@@ -112,9 +112,9 @@ class dmft_loop:
 
       times.append((time(),"impurity"))
 
-      mpi.barrier()
+      if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
       self.impurity(data=data)
-      mpi.barrier()
+      if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
       times.append((time(),"dump_impurity_output and mix impurity"))
 
       if mpi.is_master_node():
@@ -157,7 +157,7 @@ class dmft_loop:
         A = HDFArchive(data.archive_name)
         A['max_index'] = loop_index
         del A
-      mpi.barrier()
+      if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
 
       if (mpi.rank==0 or mpi.rank==1) and total_debug: #total debug option
         archive_name = 'full_data'
@@ -168,7 +168,7 @@ class dmft_loop:
         data.dump_all(suffix='-%s'%loop_index, archive_name=archive_name)
 
       times.append((time(),""))
-      mpi.barrier()
+      if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
       if mpi.is_master_node():
         self.print_timings(times)
 
@@ -180,7 +180,7 @@ class dmft_loop:
     if mpi.is_master_node():
       data.dump_all(suffix='-final') 
 
-    mpi.barrier()
+    if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
     if converged:
       return 0  
     else:

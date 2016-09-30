@@ -472,10 +472,10 @@ class basic_data:
           print "WARNING: key ",key," not found in archive!! "  
 
       del A
-    if mpi.size!=1:
-      if mpi.is_master_node(): print "mpi.size = ",mpi.size, " will now broadcast all the read quantities"
-      for key in all_quantities:
-        vars(self)[key] = copy.deepcopy( mpi.bcast(vars(self)[key]) ) 
+    #if mpi.size!=1:
+    #  if mpi.is_master_node(): print "mpi.size = ",mpi.size, " will now broadcast all the read quantities"
+    #  for key in all_quantities:
+    #    vars(self)[key] = copy.deepcopy( mpi.bcast(vars(self)[key]) ) 
 
 
 class bosonic_data(basic_data):
@@ -666,7 +666,7 @@ class bosonic_data(basic_data):
           self.P_imp_iw[a] << 0.0
   
       del A
-    self.P_imp_iw << mpi.bcast(self.P_imp_iw) 
+    #self.P_imp_iw << mpi.bcast(self.P_imp_iw) 
 
   def change_qs(self, qs_new):
     n_q_new = len(qs_new)
@@ -861,9 +861,9 @@ class fermionic_data(basic_data):
           self.mus[a] = A['mus%s'%suffix][a]
 
       del A 
-    self.Sigma_imp_iw << mpi.bcast(self.Sigma_imp_iw)
-    for a in self.fermionic_struct.keys():
-      self.mus[a] = mpi.bcast(self.mus[a])
+    #self.Sigma_imp_iw << mpi.bcast(self.Sigma_imp_iw)
+    #for a in self.fermionic_struct.keys():
+    #  self.mus[a] = mpi.bcast(self.mus[a])
 
   def change_ks(self, ks_new):
     n_k_new = len(ks_new)
@@ -1372,7 +1372,7 @@ class GW_data(edmft_data):
 
   def get_P_loc_from_local_bubble(self, imtime = False, P = None, su2_symmetry=True, nui_list = [], Lambda = lambda A, wi, nui: 1.0):
     if mpi.is_master_node():
-      print "get_P_loc_from_local_bubble"
+      print "get_P_loc_from_local_bubble, imtime: ", imtime
       print "  Lambda check: Lambda('0',nw/2, nnu/2)", Lambda('0',self.nw/2, self.nnu/2)
       print "  Lambda check: Lambda('1',nw/2, nnu/2)", Lambda('1',self.nw/2, self.nnu/2)
     if P is None: P = self.P_loc_iw

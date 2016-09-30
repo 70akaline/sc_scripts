@@ -15,7 +15,7 @@ import pytriqs.utility.mpi as mpi
 #from cthyb_spin import Solver  
 #from selfconsistency.useful_functions import adjust_n_points
 #from selfconsistency.provenance import hash_dict
-
+from first_include import *
 from amoeba import amoeba
 from impurity_solvers import *
 from data_types import *
@@ -242,7 +242,8 @@ class GW:
         print "[Node",mpi.rank,"]","exiting to system..."
         if mpi.is_master_node():
           data.dump_all(archive_name="black_box_nan", suffix='')          
-        mpi.barrier()
+        #if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
+        mpi.bcast({'construct|run|exit': 2}) 
         quit()      
 
       #print ">>>>>>> [Node",mpi.rank,"] Sigmakw", data.Sigmakw['up'][data.nw/2,0,0]
@@ -477,7 +478,7 @@ class GW_hubbard_pm:
       dt.get_n_from_G_loc()     
       #print "funcvalue: ",-abs(n - dt.ns['up'])  
       return 1.0-abs(n - dt.ns['up'])  
-    mpi.barrier()
+    if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
     varbest, funcvalue, iterations = amoeba(var=[data.mus['up']],
                                               scale=[0.01],
                                               func=func, 
@@ -655,7 +656,7 @@ class supercond_hubbard:
         if mpi.is_master_node(): print "amoeba func call: val = ",val
         if val != val: return -1e+6
         else: return val
-      mpi.barrier()
+      if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
 
       if mpi.is_master_node(): print "about to do mu search:"
 

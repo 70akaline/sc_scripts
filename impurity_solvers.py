@@ -12,6 +12,9 @@ import pytriqs.utility.mpi as mpi
 #from glattice_tools.core import *  
 #from glattice_tools.multivar import *  
 #from trilex.tools import *
+
+from first_include import *
+
 from cthyb_spin import Solver
 
 try:
@@ -81,39 +84,86 @@ class solvers:
     @staticmethod
     def run(data, no_fermionic_bath, symmetrize_quantities=True, 
                   trilex=False, n_w_f=2, n_w_b=2,
-                  n_cycles=20000, max_time=10*60, hartree_shift = 0.0 ):
+                  n_cycles=20000, max_time=10*60, hartree_shift = 0.0,
+                  solver_data_package = None ):
       #------- run solver
-      try:           
-        data.solver.solve(
-           h_int = data.U_inf * n('up',0) * n('down',0),
-           hartree_shift = [hartree_shift, hartree_shift],
-           n_cycles = n_cycles,
-           length_cycle = 1000,
-           n_warmup_cycles = 1000,
-           max_time = max_time,
-           measure_nn = True,
-           measure_nnw = True,
-           measure_chipmt = True,
-           measure_gt = False,
-           measure_ft = False,
-           measure_gw = not no_fermionic_bath,
-           measure_fw = not no_fermionic_bath,
-           measure_g2w = trilex,
-           measure_f2w = False,
-           measure_hist = True,
-           measure_hist_composite = True,
-           measure_nnt=False,
-           move_group_into_spin_segment =  not no_fermionic_bath,
-           move_split_spin_segment =  not no_fermionic_bath,
-           move_swap_empty_lines = True,
-           move_move = not no_fermionic_bath,
-           move_insert_segment = not no_fermionic_bath,
-           move_remove_segment = not no_fermionic_bath,
+      try:        
+        if solver_data_package is None: 
+          solver_data_package = {}    
+        solver_data_package['solve_parameters'] = {}
+        #solver_data_package['solve_parameters']['h_int'] = lambda: data.U_inf * n('up',0) * n('down',0)
+        solver_data_package['solve_parameters']['U_inf'] = data.U_inf
+        solver_data_package['solve_parameters']['hartree_shift'] = [hartree_shift, hartree_shift]
+        solver_data_package['solve_parameters']['n_cycles'] = n_cycles
+        solver_data_package['solve_parameters']['length_cycle'] = 1000
+        solver_data_package['solve_parameters']['n_warmup_cycles'] = 1000
+        solver_data_package['solve_parameters']['max_time'] = max_time
+        solver_data_package['solve_parameters']['measure_nn'] = True
+        solver_data_package['solve_parameters']['measure_nnw'] = True
+        solver_data_package['solve_parameters']['measure_chipmt'] = True
+        solver_data_package['solve_parameters']['measure_gt'] = False
+        solver_data_package['solve_parameters']['measure_ft'] = False
+        solver_data_package['solve_parameters']['measure_gw'] = not no_fermionic_bath
+        solver_data_package['solve_parameters']['measure_fw'] = not no_fermionic_bath
+        solver_data_package['solve_parameters']['measure_g2w'] = trilex
+        solver_data_package['solve_parameters']['measure_f2w'] = False
+        solver_data_package['solve_parameters']['measure_hist'] = True
+        solver_data_package['solve_parameters']['measure_hist_composite'] = True
+        solver_data_package['solve_parameters']['measure_nnt'] = False
+        solver_data_package['solve_parameters']['move_group_into_spin_segment'] = not no_fermionic_bath
+        solver_data_package['solve_parameters']['move_split_spin_segment'] =  not no_fermionic_bath
+        solver_data_package['solve_parameters']['move_swap_empty_lines'] = True
+        solver_data_package['solve_parameters']['move_move'] = not no_fermionic_bath
+        solver_data_package['solve_parameters']['move_insert_segment'] = not no_fermionic_bath
+        solver_data_package['solve_parameters']['move_remove_segment'] = not no_fermionic_bath
 
-           n_w_f_vertex = n_w_f,
-           n_w_b_vertex = n_w_b,
-           keep_Jperp_negative = True,
+        solver_data_package['solve_parameters']['n_w_f_vertex'] = n_w_f
+        solver_data_package['solve_parameters']['n_w_b_vertex'] = n_w_b
+        solver_data_package['solve_parameters']['keep_Jperp_negative'] = True
+        print solver_data_package['solve_parameters']
+       
+        solver_data_package['G0_iw'] = data.solver.G0_iw
+        solver_data_package['D0_iw'] = data.solver.D0_iw 
+        solver_data_package['Jperp_iw'] = data.solver.Jperp_iw 
+
+        solver_data_package['construct|run|exit'] = 1
+
+        if MASTER_SLAVE_ARCHITECTURE and (mpi.size>1): solver_data_package = mpi.bcast(solver_data_package)
+        print "about to run "
+        #data.solver.solve( **(solver_data_package['solve_parameters'] + )
+        data.solver.solve(
+           h_int = solver_data_package['solve_parameters']['U_inf'] * n('up',0) * n('down',0),
+           hartree_shift = solver_data_package['solve_parameters']['hartree_shift'],
+           n_cycles = solver_data_package['solve_parameters']['n_cycles'],
+           length_cycle = solver_data_package['solve_parameters']['length_cycle'],
+           n_warmup_cycles = solver_data_package['solve_parameters']['n_warmup_cycles'],
+           max_time = solver_data_package['solve_parameters']['max_time'],
+           measure_nn = solver_data_package['solve_parameters']['measure_nn'],
+           measure_nnw = solver_data_package['solve_parameters']['measure_nnw'],
+           measure_chipmt = solver_data_package['solve_parameters']['measure_chipmt'],
+           measure_gt = solver_data_package['solve_parameters']['measure_gt'],
+           measure_ft = solver_data_package['solve_parameters']['measure_ft'],
+           measure_gw = solver_data_package['solve_parameters']['measure_gw'],
+           measure_fw = solver_data_package['solve_parameters']['measure_fw'],
+           measure_g2w = solver_data_package['solve_parameters']['measure_g2w'],
+           measure_f2w = solver_data_package['solve_parameters']['measure_f2w'],
+           measure_hist = solver_data_package['solve_parameters']['measure_hist'],
+           measure_hist_composite = solver_data_package['solve_parameters']['measure_hist_composite'],
+           measure_nnt=solver_data_package['solve_parameters']['measure_nnt'],
+           move_group_into_spin_segment =  solver_data_package['solve_parameters']['move_group_into_spin_segment'],
+           move_split_spin_segment = solver_data_package['solve_parameters']['move_split_spin_segment'],
+           move_swap_empty_lines = solver_data_package['solve_parameters']['move_swap_empty_lines'],
+           move_move = solver_data_package['solve_parameters']['move_move'],
+           move_insert_segment = solver_data_package['solve_parameters']['move_insert_segment'],
+           move_remove_segment = solver_data_package['solve_parameters']['move_remove_segment'],
+
+           n_w_f_vertex = solver_data_package['solve_parameters']['n_w_f_vertex'],
+           n_w_b_vertex = solver_data_package['solve_parameters']['n_w_b_vertex'],
+           keep_Jperp_negative = solver_data_package['solve_parameters']['keep_Jperp_negative']
           )
+
+
+
  
         data.G_imp_iw << data.solver.G_iw   
 
@@ -125,7 +175,9 @@ class solvers:
               if mpi.is_master_node():
                 data.dump_all(archive_name="black_box_nan", suffix='')          
                 cthyb.dump(data.solver, archive_name="black_box_nan", suffix='')
-              mpi.barrier()
+              if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
+              solver_data_package['construct|run|exit'] = 2
+              if MASTER_SLAVE_ARCHITECTURE and (mpi.size>1): solver_data_package = mpi.bcast(solver_data_package)
               quit()      
             else:
               print "[Node",mpi.rank,"]"," nan in F but not in G!! will be calculating Sigma from G and G0"
@@ -171,7 +223,65 @@ class solvers:
       A['Kperpprime_tau%s'%suffix] = solver.Kperpprime_tau
 
       A["hyb_hist%s"%suffix] = solver.histogram
-      A["mc_sign%s"%suffix] = solver.mc_sign    
+      A["mc_sign%s"%suffix] = solver.mc_sign   
+
+################################ SLAVES #########################################
+
+def slave_calculation(solver_data_package, printout=False):
+  while True:
+    if printout: print "[Node ",mpi.rank,"] waiting for instructions..."
+    solver_data_package = mpi.bcast(solver_data_package)
+    if printout: print "[Node ",mpi.rank,"] received instructions!!!"
+    if solver_data_package['construct|run|exit'] == 0:     
+      if printout: print "[Node ",mpi.rank,"] constructing solver!!!"
+      if solver_data_package['solver'] != 'cthyb':
+        print "[Node ",mpi.rank,"] ERROR: CTINT NOT IMPLEMENTED"
+        quit()
+      solver = Solver( **(solver_data_package['constructor_parameters']) )
+    if solver_data_package['construct|run|exit'] == 1:     
+      if printout: print "[Node ",mpi.rank,"] about to run..."
+      solver.G0_iw << solver_data_package['G0_iw']
+      solver.D0_iw << solver_data_package['D0_iw']
+      solver.Jperp_iw << solver_data_package['Jperp_iw']
+      #solver.solve( **(solver_data_package['solve_parameters'])  )
+      try:
+        solver.solve(
+           h_int = solver_data_package['solve_parameters']['U_inf'] * n('up',0) * n('down',0),
+           hartree_shift = solver_data_package['solve_parameters']['hartree_shift'],
+           n_cycles = solver_data_package['solve_parameters']['n_cycles'],
+           length_cycle = solver_data_package['solve_parameters']['length_cycle'],
+           n_warmup_cycles = solver_data_package['solve_parameters']['n_warmup_cycles'],
+           max_time = solver_data_package['solve_parameters']['max_time'],
+           measure_nn = solver_data_package['solve_parameters']['measure_nn'],
+           measure_nnw = solver_data_package['solve_parameters']['measure_nnw'],
+           measure_chipmt = solver_data_package['solve_parameters']['measure_chipmt'],
+           measure_gt = solver_data_package['solve_parameters']['measure_gt'],
+           measure_ft = solver_data_package['solve_parameters']['measure_ft'],
+           measure_gw = solver_data_package['solve_parameters']['measure_gw'],
+           measure_fw = solver_data_package['solve_parameters']['measure_fw'],
+           measure_g2w = solver_data_package['solve_parameters']['measure_g2w'],
+           measure_f2w = solver_data_package['solve_parameters']['measure_f2w'],
+           measure_hist = solver_data_package['solve_parameters']['measure_hist'],
+           measure_hist_composite = solver_data_package['solve_parameters']['measure_hist_composite'],
+           measure_nnt=solver_data_package['solve_parameters']['measure_nnt'],
+           move_group_into_spin_segment =  solver_data_package['solve_parameters']['move_group_into_spin_segment'],
+           move_split_spin_segment = solver_data_package['solve_parameters']['move_split_spin_segment'],
+           move_swap_empty_lines = solver_data_package['solve_parameters']['move_swap_empty_lines'],
+           move_move = solver_data_package['solve_parameters']['move_move'],
+           move_insert_segment = solver_data_package['solve_parameters']['move_insert_segment'],
+           move_remove_segment = solver_data_package['solve_parameters']['move_remove_segment'],
+
+           n_w_f_vertex = solver_data_package['solve_parameters']['n_w_f_vertex'],
+           n_w_b_vertex = solver_data_package['solve_parameters']['n_w_b_vertex'],
+           keep_Jperp_negative = solver_data_package['solve_parameters']['keep_Jperp_negative']
+          )
+        if printout: print "[Node ",mpi.rank,"] finished running successfully!"
+      except:
+        print "[Node ",mpi.rank,"] ERROR: crash during running"
+    if solver_data_package['construct|run|exit'] == 2: 
+      if printout: print "[Node ",mpi.rank,"] received exit signal, will exit now. Goodbye."    
+      break
+ 
 
 ################################ PREPARERS (from Uweiss to CTHYB parameters) #########################################
 

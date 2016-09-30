@@ -19,6 +19,7 @@ import pytriqs.utility.mpi as mpi
 #from selfconsistency.provenance import hash_dict
 from copy import deepcopy
 ############################################## MAIN CODES ###################################
+from first_include import *
 from dmft_loop import *
 from data_types import *
 import formulae
@@ -49,7 +50,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                             n_loops_min = 5, n_loops_max=25, rules = [[0, 0.5], [6, 0.2], [12, 0.65]], mix_Sigma = True,
                             trilex = False, edmft = False, local_bubble_for_charge_P = False,charge_boson_GW_style = False, imtime = True, use_optimized = True, N_cores = 1, 
                             do_dmft_first = True, do_normal = True, do_eigenvalue = False, do_superconducting = False, initial_X_prefactor = 2.0,
-                            use_cthyb=True, n_cycles=100000, max_time=10*60, accuracy = 1e-4, supercond_accr = 1e-8, 
+                            use_cthyb=True, n_cycles=100000, max_time=10*60, accuracy = 1e-4, supercond_accr = 1e-8, solver_data_package = None,
                             print_local_frequency=5, print_non_local_frequency = 5, total_debug=False,
                             initial_guess_archive_name = '', suffix='', clean_up_polarization = True):
   if mpi.is_master_node():
@@ -91,14 +92,22 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
 
   #init solver
   if use_cthyb and loc_from_imp:
-    solver = Solver( beta = beta,
-                     gf_struct = fermionic_struct, 
-                     n_tau_k = n_tau,
-                     n_tau_g = 10000,
-                     n_tau_delta = 10000,
-                     n_tau_nn = 4*n_tau,
-                     n_w_b_nn = n_iw,
-                     n_w = n_iw )
+    if solver_data_package is None: solver_data_package = {}
+    solver_data_package['solver'] = 'cthyb'
+    solver_data_package['constructor_parameters']={}
+    solver_data_package['constructor_parameters']['beta'] = beta
+    solver_data_package['constructor_parameters']['gf_struct'] = fermionic_struct
+    solver_data_package['constructor_parameters']['n_tau_k'] = n_tau
+    solver_data_package['constructor_parameters']['n_tau_g'] = 10000
+    solver_data_package['constructor_parameters']['n_tau_delta'] = 10000
+    solver_data_package['constructor_parameters']['n_tau_nn'] = 4*n_tau
+    solver_data_package['constructor_parameters']['n_w_b_nn'] = n_iw
+    solver_data_package['constructor_parameters']['n_w'] = n_iw
+    solver_data_package['construct|run|exit'] = 0
+
+    if MASTER_SLAVE_ARCHITECTURE and (mpi.size>1): solver_data_package = mpi.bcast(solver_data_package)
+     
+    solver = Solver( **solver_data_package['constructor_parameters'] )
   else:
     solver = None
 
@@ -180,14 +189,20 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       dt.change_beta(beta, n_iw)
 
       if loc_from_imp:
-        dt.solver = Solver( beta = beta,
-                     gf_struct = fermionic_struct, 
-                     n_tau_k = n_tau,
-                     n_tau_g = 10000,
-                     n_tau_delta = 10000,
-                     n_tau_nn = 4*n_tau,
-                     n_w_b_nn = n_iw,
-                     n_w = n_iw )
+        if solver_data_package is None: solver_data_package = {}
+        solver_data_package['constructor_parameters']={}
+        solver_data_package['constructor_parameters']['beta'] = beta
+        solver_data_package['constructor_parameters']['gf_struct'] = fermionic_struct
+        solver_data_package['constructor_parameters']['n_tau_k'] = n_tau
+        solver_data_package['constructor_parameters']['n_tau_g'] = 10000
+        solver_data_package['constructor_parameters']['n_tau_delta'] = 10000
+        solver_data_package['constructor_parameters']['n_tau_nn'] = 4*n_tau
+        solver_data_package['constructor_parameters']['n_w_b_nn'] = n_iw
+        solver_data_package['constructor_parameters']['n_w'] = n_iw
+        solver_data_package['construct|run|exit'] = 0
+
+        if MASTER_SLAVE_ARCHITECTURE and (mpi.size>1): solver_data_package = mpi.bcast(solver_data_package)
+        dt.solver = Solver( **solver_data_package['constructor_parameters'] )
       old_beta = beta
 
     filename = "result"
@@ -294,7 +309,8 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
       if use_cthyb:
         impurity = partial( solvers.cthyb.run, no_fermionic_bath=False, 
                                            trilex=trilex or (local_bubble_for_charge_P and not charge_boson_GW_style), n_w_f=n_w_f, n_w_b=n_w_b,
-                                           n_cycles=n_cycles, max_time=max_time )
+                                           n_cycles=n_cycles, max_time=max_time,
+                                           solver_data_package = solver_data_package )
         dt.dump_solver = partial(solvers.cthyb.dump, solver = dt.solver, archive_name = dt.archive_name)
       else:
         impurity = partial( solvers.ctint.run, n_cycles=n_cycles)
@@ -434,7 +450,8 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
         old_impurity = dmft.impurity
         dmft.impurity = partial( solvers.cthyb.run, no_fermionic_bath=False, 
                                            trilex=False, n_w_f=n_w_f, n_w_b=n_w_b,
-                                           n_cycles=n_cycles, max_time=max_time )
+                                           n_cycles=n_cycles, max_time=( max_time if (not trilex) else (max_time/2)), 
+                                           solver_data_package = solver_data_package )
       
       dmft.mixers = [] # no mixing
       dmft.cautionary = None # nothing to be cautious about 
@@ -481,7 +498,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
             for U in fermionic_struct.keys():
               dt.hsck[U][kxi, kyi] = X_dwave(dt.ks[kxi],dt.ks[kyi], h)
    
-    mpi.barrier()
+    if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
     #run dmft!-------------
     if do_normal and not (do_superconducting and T!=Ts[0]):
       err = dmft.run( dt,  calculation_name = 'normal', total_debug = total_debug,
@@ -493,9 +510,11 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
                       last_iteration_err_is_allowed = n_loops_max+5 ) #n_loops_max/2 )
       if (err==2): 
         print "Cautionary error!!! exiting..."
+        solver_data_package['construct|run|exit'] = 2
+        if MASTER_SLAVE_ARCHITECTURE and (mpi.size>1): solver_data_package = mpi.bcast(solver_data_package)
         break
 
-    mpi.barrier()
+    if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
     if do_eigenvalue:
       #get the leading eigenvalue and the corresponding eigenvector to be used as the initial guess for Xkw
       if imtime and use_optimized:
@@ -521,7 +540,7 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
         print cmd
         os.system(cmd)
 
-    mpi.barrier()
+    if not MASTER_SLAVE_ARCHITECTURE: mpi.barrier()
     if do_superconducting and (dt.eig_ratio >= 1.0):          
       if mpi.is_master_node(): print "--------------------------------- will now do superconducting calculation!!! ------------------------------"
       # start from a small gap
@@ -555,4 +574,6 @@ def supercond_hubbard_calculation( Ts = [0.12,0.08,0.04,0.02,0.01],
     counter += 1
   if not (old_get_Xkw is None):
     dt.get_Xkw  = old_get_Xkw #putting back the function for later use
+  solver_data_package['construct|run|exit'] = 2
+  if MASTER_SLAVE_ARCHITECTURE and (mpi.size>1): solver_data_package = mpi.bcast(solver_data_package)
   return dt, monitors, convergers
